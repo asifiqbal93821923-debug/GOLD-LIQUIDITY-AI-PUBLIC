@@ -20,10 +20,13 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 ## Phase 2 work packages
 
 ### P2.1 — Data and replay correctness
-- [ ] Obtain a sufficiently deep, timestamped XAUUSD OHLC dataset for 4H, 1H and 15M; 5M is optional.
-- [ ] Confirm timezone, daylight/session gaps, symbol/contract mapping, point size and volume semantics.
-- [ ] Add deterministic fixtures for missing bars, duplicate bars, out-of-order data, gaps and exact timeframe-boundary alignment.
-- [ ] Audit all engine inputs for closed-bar-only behavior and look-ahead/repainting.
+- [x] Same-feed TradingView CSV import/preparation pipeline exists (`scripts/prepare_xauusd_dataset.py`); it rejects naive local timestamps and forming/future bars, checks duplicate timestamps, records provenance, and requires minimum history for chronological partitions.
+- [x] Historical candle audit API added at `POST /api/market/history/audit`; reports coverage, closed/forming/future rows, duplicates, out-of-order rows, malformed OHLCV and gaps without synthesizing candles.
+- [x] Deterministic tests cover duplicate/out-of-order rows, gaps, invalid OHLC, closed/forming/future classification, and exact MTF close-boundary behavior.
+- [x] Replay code and tests enforce fully closed 4H/1H/15M/optional-5M bars at each 1H decision close.
+- [ ] Import a sufficiently deep, timestamped XAUUSD OHLC dataset from one verified provider/feed for 4H, 1H and 15M; 5M is optional.
+- [ ] Verify chart ticker/provider, timezone, broker contract/point size and volume semantics against source documentation.
+- [ ] Run the quality audit against the real imported dataset and review session/weekend gaps before replay.
 
 ### P2.2 — Pine reference parity
 - [ ] Export TradingView golden fixtures from the exact supplied Pine versions and settings.
@@ -58,7 +61,7 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 
 ## Known blockers / external dependencies
 - No confirmed live MT5 broker feed is currently connected; user has no desktop PC for MetaTrader Desktop testing.
-- Historical store currently has zero 1H candles in the production API at the last Phase 1 audit. The public indicative archive is not broker-quality XAUUSD OHLCV.
+- Historical store previously returned zero 1H candles in the production API. The public indicative sampled-price archive is not broker OHLCV and must not be converted into synthetic candles. The repository still has no verified same-feed 4H/1H/15M CSV dataset.
 - No TradingView golden fixture package is currently present in the repository.
 - Actual broker spread/commission/slippage contract details have not been calibrated.
 - OHLCV footprint values are proxies, not real MBO/order-book, true aggressor CVD, open interest or iceberg data.
