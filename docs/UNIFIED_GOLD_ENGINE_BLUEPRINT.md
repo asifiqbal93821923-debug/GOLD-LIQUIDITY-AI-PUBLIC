@@ -104,16 +104,16 @@ Weights and thresholds must be learned/calibrated only on separated in-sample da
 ## Institutional Footprint & Liquidity Intelligence
 A fifth, isolated backend module now provides OHLCV-derived liquidity pool clusters, sweep/reclaim estimates, volume anomaly, candle-location buy/sell activity estimates, a 20-bar estimated delta, absorption proxy and a low-confidence activity score. It also explicitly reports order-book/MBO, true CVD, OI, large trade tape and iceberg detection as unavailable until a licensed data feed is connected. See docs/INSTITUTIONAL_FOOTPRINT_LIQUIDITY_ENGINE.md.
 
-The Gold Report AI API accepts 4H/1H/15M/5M candle arrays and returns a partial report when any timeframe is missing; it deliberately remains WAIT and does not convert liquidity proxies alone into trade signals.
+The Gold Report AI API accepts 4H/1H/15M and optional 5M candle arrays and returns a partial report when any timeframe is missing; it deliberately remains WAIT and does not convert liquidity proxies alone into trade signals.
 
 ## Current implementation status (2026-11-03)
 - Alpha Signal Engine: initial Python adapter exists; Pine golden-fixture parity is not certified.
 - SMC: conservative OHLCV adapter now calculates confirmed pivot structure, basic BOS/CHoCH, FVG candidates, last-opposite-candle OB candidates, EQH/EQL and premium/discount. This is not a complete LuxAlgo source port.
 - WSB: conservative wick-sequence, absorption-candidate and breakout adapter exists. Estimated volume split is not true bid/ask delta.
 - AI Channels: K-means context adapter exists with separate `corrected` and `pine_parity` convergence modes. Persistent denoising parity is not certified.
-- Unified Decision: now uses 4H macro veto, 1H primary bias, 15M structure and 5M WSB trigger; AI channel conflict and ambiguous liquidity sweep are vetoes. Missing/stale data, unconfirmed trigger, spread not asserted acceptable or invalid risk plan returns WAIT.
-- Gold Report AI orchestrator combines Alpha, SMC, WSB, AI Channels and footprint proxy for 4H/1H/15M/5M.
-- Initial 5M structural/ATR trade-plan proposal exists, but is not a validated production risk planner.
+- Unified Decision: now uses 4H macro context/veto, 1H primary bias and trade-plan source, 15M setup confirmation, optional 5M WSB entry refinement; AI channel conflict and ambiguous liquidity sweep are vetoes. Missing/stale data, unconfirmed trigger, spread not asserted acceptable or invalid risk plan returns WAIT.
+- Gold Report AI orchestrator combines Alpha, SMC, WSB, AI Channels and footprint proxy for 4H/1H/15M plus optional 5M.
+- Initial 1H structural/ATR trade-plan proposal now derives entry zone, stop and targets only from 1H candles. It is not calibrated or backtest-validated; 5M is optional and never supplies the primary direction or risk plan.
 - A GitHub Actions backend test workflow and unit tests have been added; latest run result must be checked before claiming tests pass.
 - No production market feed, live CME MBO/order-book, true CVD/OI/large-print/iceberg feed, certified Pine parity, deployed dashboard or Android APK yet.
 
