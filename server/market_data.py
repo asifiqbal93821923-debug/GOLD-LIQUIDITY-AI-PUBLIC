@@ -63,6 +63,9 @@ class CandleStore:
               volume REAL,source TEXT NOT NULL,updated_at TEXT NOT NULL,
               PRIMARY KEY(symbol,timeframe,time))""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_candles_lookup ON candles(symbol,timeframe,time)")
+            db.execute("""CREATE TABLE IF NOT EXISTS quotes(
+              symbol TEXT PRIMARY KEY,bid REAL NOT NULL,ask REAL NOT NULL,point REAL NOT NULL,
+              spread_points REAL NOT NULL,quote_time INTEGER NOT NULL,source TEXT NOT NULL,updated_at TEXT NOT NULL)""")
 
     def _connect(self):
         db=sqlite3.connect(self.path,timeout=20)
@@ -98,4 +101,19 @@ class CandleStore:
             else:
                 row=db.execute("""SELECT source,updated_at FROM candles WHERE symbol=?
                   ORDER BY updated_at DESC LIMIT 1""",(symbol,)).fetchone()
+        return dict(row) if row else None
+
+    def upsert_quote(self,symbol: str,bid: float,ask: float,point: float,quote_time: int,source: str) -> None:
+        now=datetime.now(timezone.utc).isoformat()
+        spread=(ask-bid)/point
+        with self._connect() as db:
+            db.execute("""INSERT INTO quotes(symbol,bid,ask,point,spread_points,quote_time,source,updated_at)
+              VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(symbol) DO UPDATE SET
+              bid=excluded.bid,ask=excluded.ask,point=excluded.point,spread_points=excluded.spread_points,
+              quote_time=excluded.quote_time,source=excluded.source,updated_at=excluded.updated_at""",
+              (symbol,bid,ask,point,spread,quote_time,source,now))
+
+    def latest_quote(self,symbol: str="XAUUSD") -> dict[str,Any] | None:
+        with self._connect() as db:
+            row=db.execute("SELECT * FROM quotes WHERE symbol=?",(symbol,)).fetchone()
         return dict(row) if row else None
