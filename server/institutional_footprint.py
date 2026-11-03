@@ -119,6 +119,9 @@ def analyze_institutional_footprint(
     absorption_buy = bool(vol_spike and lower_wick / candle_range >= 0.45 and close_location >= 0.60)
     absorption_sell = bool(vol_spike and upper_wick / candle_range >= 0.45 and close_location <= 0.40)
     ambiguous_sweep = swept_high and swept_low
+    recent_window = rows[-20:]
+    estimated_cvd_20 = sum(r["volume"] * (((r["close"] - r["low"]) / max(r["high"] - r["low"], 1e-12)) * 2.0 - 1.0) for r in recent_window)
+    activity_score = min(100, int((25 if vol_spike else 0) + (20 if absorption_buy or absorption_sell else 0) + (20 if swept_high or swept_low else 0) + (10 if buy_side or sell_side else 0) + (10 if relative_volume >= 1.3 else 0)))
 
     return {
         "status": "ok",
@@ -140,6 +143,10 @@ def analyze_institutional_footprint(
             "sell_side_below_swing_lows": sell_side,
             "recent_range": {"high": recent_high, "low": recent_low}
         },
+        "liquidity_heatmap": {
+            "levels": [{"side": "buy_side", **x} for x in buy_side] + [{"side": "sell_side", **x} for x in sell_side],
+            "semantics": "PIVOT_CLUSTER_ESTIMATES_NOT_RESTING_ORDERS"
+        },
         "liquidity_sweep": {
             "buy_side_sweep_and_reclaim": bool(swept_high),
             "sell_side_sweep_and_reclaim": bool(swept_low),
@@ -153,6 +160,9 @@ def analyze_institutional_footprint(
             "estimated_buy_volume": round(estimated_buy_volume, 5),
             "estimated_sell_volume": round(estimated_sell_volume, 5),
             "estimated_delta": round(estimated_delta, 5),
+            "estimated_cvd_20_bars": round(estimated_cvd_20, 5),
+            "open_interest": None,
+            "large_trade_tape": "unavailable_without_trade_print_feed",
             "delta_semantics": "CANDLE_CLOSE_LOCATION_ESTIMATE_NOT_TRUE_CVD"
         },
         "absorption_proxy": {
@@ -160,6 +170,12 @@ def analyze_institutional_footprint(
             "possible_sell_absorption": absorption_sell,
             "confidence": "low_to_medium" if vol_spike else "low",
             "note": "Heuristic wick + relative-volume pattern; not proof of iceberg or institutional activity."
+        },
+        "institutional_activity_score": {
+            "score": activity_score,
+            "label": "proxy_activity_only",
+            "confidence": "low",
+            "note": "Rule-based OHLCV activity score, not a probability or proof of institutional participation."
         },
         "risk_flags": {
             "ambiguous_sweep": bool(ambiguous_sweep),
