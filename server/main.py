@@ -13,6 +13,8 @@ try:
     from .institutional_footprint import analyze_institutional_footprint
     from .gold_report import build_gold_report
     from .market_data import CandleStore, validate_candles, to_epoch_seconds
+    from .phase3_storage import Phase3Store
+    from .risk_management import DEFAULT_RISK_SETTINGS, normalize_risk_settings, evaluate_risk
     from .backtest import run_alpha_1h_backtest
     from .multitimeframe_backtest import run_gold_mtf_backtest
     from .data_audit import audit_candle_history
@@ -22,16 +24,20 @@ except ImportError:
     from institutional_footprint import analyze_institutional_footprint
     from gold_report import build_gold_report
     from market_data import CandleStore, validate_candles, to_epoch_seconds
+    from phase3_storage import Phase3Store
+    from risk_management import DEFAULT_RISK_SETTINGS, normalize_risk_settings, evaluate_risk
     from backtest import run_alpha_1h_backtest
     from multitimeframe_backtest import run_gold_mtf_backtest
     from data_audit import audit_candle_history
 
-app = FastAPI(title="Project Indicator App API", version="0.4.0")
+app = FastAPI(title="Project Indicator App API", version="0.5.0")
 app.add_middleware(CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,https://asifiqbal93821923-debug.github.io").split(",") if origin.strip()],
     allow_credentials=True, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
-STORE = CandleStore(os.getenv("DATABASE_URL") or os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
+DATABASE_PATH = os.getenv("DATABASE_URL") or os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3")
+STORE = CandleStore(DATABASE_PATH)
+PHASE3_STORE = Phase3Store(DATABASE_PATH)
 TIMEFRAMES = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1D"}
 
 TF_SECONDS={"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"4h":14400,"1D":86400}
@@ -149,6 +155,18 @@ class GoldReportRequest(BaseModel):
     data_fresh: bool = False
     spread_acceptable: bool = False
 
+class JournalCreateRequest(BaseModel):
+    direction: Literal["BUY", "SELL"]
+    entry_price: float = Field(gt=0)
+    stop_loss: float = Field(gt=0)
+    target_price: float = Field(gt=0)
+    lots: float = Field(gt=0, le=1000)
+    notes: str = Field(default="", max_length=500)
+
+class JournalCloseRequest(BaseModel):
+    exit_price: float = Field(gt=0)
+    pnl_money: float
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def root_health():
     # Root health response for generic platform probes and browser checks.
@@ -156,7 +174,7 @@ def root_health():
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
-    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.4.0"}
+    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.5.0"}
 
 @app.get("/api/config/status")
 def config_status():
@@ -261,6 +279,89 @@ def get_market_quote(symbol: str="XAUUSD"):
       "message":"Spread within configured limit." if state["acceptable"] else "Spread gate closed: actual tick stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
 
+
+@app.get("/api/risk/settings")
+def get_risk_settings():
+    settings = PHASE3_STORE.get_risk_settings(DEFAULT_RISK_SETTINGS)
+    return {"status": "ok", "settings": settings,
+      "note": "Risk profile is used for analysis gates and estimates only; no orders are sent."}
+
+
+@app.put("/api/risk/settings")
+def save_risk_settings(payload: dict):
+    try:
+        settings = normalize_risk_settings(payload)
+        PHASE3_STORE.set_risk_settings(settings)
+        return {"status": "ok", "settings": settings}
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+@app.get("/api/alerts")
+def get_signal_alerts(limit: int = 50):
+    if not 1 <= limit <= 200:
+        raise HTTPException(400, "limit must be between 1 and 200")
+    return {"status": "ok", "events": PHASE3_STORE.list_signal_events(limit)}
+
+
+@app.get("/api/journal")
+def get_trade_journal(limit: int = 50):
+    if not 1 <= limit <= 500:
+        raise HTTPException(400, "limit must be between 1 and 500")
+    entries = PHASE3_STORE.list_journal_entries(limit)
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    opened_today = 0
+    realized_today = 0.0
+    open_trades = 0
+    for trade in PHASE3_STORE.list_journal_entries(500):
+        try:
+            opened = datetime.fromisoformat((trade.get("opened_at") or trade.get("created_at")).replace("Z", "+00:00"))
+            if opened.tzinfo is None:
+                opened = opened.replace(tzinfo=timezone.utc)
+            if opened.astimezone(timezone.utc) >= day_start:
+                opened_today += 1
+        except (AttributeError, TypeError, ValueError):
+            pass
+        if trade.get("status") == "OPEN":
+            open_trades += 1
+        try:
+            closed = datetime.fromisoformat((trade.get("closed_at") or "").replace("Z", "+00:00"))
+            if closed.tzinfo is None:
+                closed = closed.replace(tzinfo=timezone.utc)
+            pnl = float(trade.get("pnl_money"))
+            if closed.astimezone(timezone.utc) >= day_start and math.isfinite(pnl):
+                realized_today += pnl
+        except (AttributeError, TypeError, ValueError):
+            pass
+    return {"status": "ok", "entries": entries, "summary": {
+        "opened_today_utc": opened_today, "open_trades": open_trades,
+        "realized_pnl_today_utc": round(realized_today, 2)}, "timezone": "UTC"}
+
+
+@app.post("/api/journal")
+def create_trade_journal_entry(payload: JournalCreateRequest):
+    values = payload.model_dump()
+    if payload.direction == "BUY" and not payload.stop_loss < payload.entry_price < payload.target_price:
+        raise HTTPException(422, "BUY journal levels must satisfy SL < entry < target.")
+    if payload.direction == "SELL" and not payload.stop_loss > payload.entry_price > payload.target_price:
+        raise HTTPException(422, "SELL journal levels must satisfy SL > entry > target.")
+    try:
+        return {"status": "ok", "entry": PHASE3_STORE.create_journal_entry(values)}
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+@app.post("/api/journal/{entry_id}/close")
+def close_trade_journal_entry(entry_id: str, payload: JournalCloseRequest):
+    if not math.isfinite(payload.exit_price) or not math.isfinite(payload.pnl_money):
+        raise HTTPException(422, "Exit price and realized PnL must be finite.")
+    entry = PHASE3_STORE.close_journal_entry(entry_id, payload.exit_price, payload.pnl_money)
+    if entry is None:
+        raise HTTPException(404, "Open journal trade not found; it may already be closed.")
+    return {"status": "ok", "entry": entry}
+
+
 @app.post("/api/market/history/audit")
 def market_history_audit(payload: HistoryAuditRequest):
     now=int(datetime.now(timezone.utc).timestamp())
@@ -309,4 +410,36 @@ def gold_report_analysis(payload: GoldReportRequest):
     now=datetime.now(timezone.utc)
     fresh=all(_fresh_ingest(tf,now) for tf in ("4h","1h","15m"))
     spread_ok=_quote_status(now)["acceptable"]
-    return build_gold_report(timeframes,data_fresh=fresh,spread_acceptable=spread_ok)
+    report = build_gold_report(timeframes,data_fresh=fresh,spread_acceptable=spread_ok)
+    risk_settings = PHASE3_STORE.get_risk_settings(DEFAULT_RISK_SETTINGS)
+    journal = PHASE3_STORE.list_journal_entries(500)
+    quote = _quote_status(now)
+    risk = evaluate_risk(report.get("decision", {}), quote, risk_settings, journal, now)
+    report["risk_management"] = risk
+
+    direction = report.get("decision", {}).get("decision")
+    last_1h = (timeframes.get("1h") or [])[-1] if timeframes.get("1h") else None
+    previous_state = PHASE3_STORE.get_setting("last_signal_state:XAUUSD", "WAIT")
+    if direction in {"BUY", "SELL"} and risk.get("approved_for_alert") and last_1h:
+        plan = report.get("decision", {}).get("trade_plan") or {}
+        entry = plan.get("entry") or []
+        targets = plan.get("targets") or []
+        candle_time = int(last_1h["time"])
+        if direction != previous_state:
+            event, created = PHASE3_STORE.create_signal_event({
+                "signal_key": f"XAUUSD:1H:{candle_time}:{direction}",
+                "symbol": "XAUUSD", "direction": direction, "candle_time": candle_time,
+                "price": float(last_1h["close"]),
+                "entry_low": entry[0] if len(entry) == 2 else None,
+                "entry_high": entry[1] if len(entry) == 2 else None,
+                "stop_loss": plan.get("stop_loss"),
+                "target1": targets[0] if len(targets) > 0 else None,
+                "target2": targets[1] if len(targets) > 1 else None,
+                "target3": targets[2] if len(targets) > 2 else None,
+                "reason_codes": report.get("decision", {}).get("reason_codes", []),
+            })
+            report["alert_event"] = {"created": created, "event": event}
+        PHASE3_STORE.set_setting("last_signal_state:XAUUSD", direction)
+    else:
+        PHASE3_STORE.set_setting("last_signal_state:XAUUSD", "WAIT")
+    return report
