@@ -7,7 +7,7 @@ from typing import Any
 DEFAULT_RISK_SETTINGS: dict[str, Any] = {
     "account_balance": None, "contract_size": None, "risk_percent": 0.5,
     "max_daily_loss_percent": 2.0, "max_trades_per_day": 3, "max_open_trades": 1,
-    "cooldown_minutes": 60, "min_reward_risk": 1.5, "max_spread_points": None,
+    "cooldown_minutes": 60, "min_reward_risk": 1.0, "max_spread_points": None,
 }
 
 def _finite(value: Any) -> bool:
