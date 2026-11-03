@@ -1,6 +1,9 @@
-"""Download one Dukascopy XAUUSD BID M1 feed and derive aligned MTF CSVs.
+"""Download Dukascopy XAUUSD BID M1 research data and derive aligned MTF CSVs.
 
-The three outputs are aggregated from the same raw M1 file. No missing source
+These outputs are an independent Dukascopy dataset. They are deliberately
+written outside data/phase2 and must not be treated as the user's TradingView
+feed or XM360 execution-price evidence without separate source verification.
+All timeframes are aggregated from the same observed M1 file; no missing source
 minutes or candles are fabricated. Timestamps are UTC Unix seconds at bar open.
 """
 from __future__ import annotations
@@ -21,7 +24,6 @@ def parse_epoch(value: str) -> int:
     number = float(value)
     if not math.isfinite(number):
         raise ValueError("non-finite timestamp")
-    # dukascopy-node CSV timestamps are milliseconds.
     return int(number / 1000) if number > 10_000_000_000 else int(number)
 
 
@@ -102,8 +104,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-date", default="2020-01-01")
     ap.add_argument("--to-date", default=datetime.now(timezone.utc).date().isoformat())
-    ap.add_argument("--output-dir", default="data/phase2")
-    ap.add_argument("--raw-dir", default="data/raw")
+    ap.add_argument("--output-dir", default="data/dukascopy_research")
+    ap.add_argument("--raw-dir", default="data/raw/dukascopy_research")
     args = ap.parse_args()
     out = Path(args.output_dir)
     raw_dir = Path(args.raw_dir)
@@ -117,7 +119,6 @@ def main():
     ]
     subprocess.run(command, check=True)
     if not raw_file.exists():
-        # dukascopy-node versions may write their standard download/ path.
         candidates = list(raw_dir.glob("*.csv"))
         if len(candidates) != 1:
             raise FileNotFoundError(f"Expected raw file {raw_file}; found {candidates[:5]}")
@@ -130,13 +131,21 @@ def main():
         "source_timeframe": "M1",
         "price_side": "BID",
         "timezone": "UTC",
+        "feed_role": "independent_research_only",
+        "tradingview_same_feed_verified": False,
+        "broker_execution_prices_verified": False,
         "source_file": str(raw_file),
         "source_rows": len(source_rows),
         "source_first_utc": datetime.fromtimestamp(source_rows[0]["time"], timezone.utc).isoformat(),
         "source_last_utc": datetime.fromtimestamp(source_rows[-1]["time"], timezone.utc).isoformat(),
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "acceptance_note": (
+            "Independent Dukascopy BID research data only. This manifest does not prove "
+            "identity with any TradingView chart feed or XM360 execution prices."
+        ),
         "aggregation": {},
     }
+    out.mkdir(parents=True, exist_ok=True)
     for tf, seconds in TIMEFRAMES.items():
         bars, report = aggregate(source_rows, seconds, now)
         if len(bars) < 250:
