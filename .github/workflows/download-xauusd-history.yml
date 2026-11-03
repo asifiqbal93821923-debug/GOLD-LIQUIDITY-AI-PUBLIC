@@ -1,6 +1,10 @@
 name: Download same-feed XAUUSD historical CSVs
 
 on:
+  push:
+    paths:
+      - ".github/workflows/download-xauusd-history.yml"
+      - "scripts/download_xauusd_same_feed.py"
   workflow_dispatch:
     inputs:
       from_date:
