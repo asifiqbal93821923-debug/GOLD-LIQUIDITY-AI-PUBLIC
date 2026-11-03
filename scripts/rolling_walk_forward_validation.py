@@ -8,6 +8,7 @@ import argparse, json, math
 from pathlib import Path
 from server.multitimeframe_backtest import run_gold_mtf_backtest
 from server.market_data import validate_candles
+from scripts.research_cost_policy import with_fail_closed_spread_gate
 
 REQUIRED = ("4h", "1h", "15m")
 METRICS = ("trade_count", "win_rate_pct", "net_pnl_price", "average_R",
@@ -29,6 +30,7 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
         raise ValueError("holdout_fraction must be 0.05..0.20")
     if mode not in ("anchored", "rolling"):
         raise ValueError("mode must be anchored or rolling")
+    costs = with_fail_closed_spread_gate(costs)
     normalized = {}
     for tf in ("4h", "1h", "15m", "5m"):
         rows = frames.get(tf) or []
@@ -138,12 +140,18 @@ def main():
     ap.add_argument("--slippage-points", type=float, required=True)
     ap.add_argument("--commission-points-per-side", type=float, default=0)
     ap.add_argument("--point-size", type=float, required=True)
+    ap.add_argument("--max-spread-points", type=float, required=True,
+                    help="Defensible observed maximum spread; zero keeps all entries blocked")
     a = ap.parse_args()
-    if min(a.spread_points, a.slippage_points, a.commission_points_per_side) < 0 or a.point_size <= 0:
+    if (not all(math.isfinite(x) for x in (a.spread_points, a.slippage_points,
+            a.commission_points_per_side, a.point_size, a.max_spread_points))
+            or min(a.spread_points, a.slippage_points, a.commission_points_per_side, a.max_spread_points) < 0
+            or a.point_size <= 0):
         ap.error("costs must be non-negative and point-size must be positive")
     frames = json.loads(Path(a.input).read_text(encoding="utf-8"))
     costs = {"spread_points": a.spread_points, "slippage_points": a.slippage_points,
-             "commission_points_per_side": a.commission_points_per_side, "point_size": a.point_size}
+             "commission_points_per_side": a.commission_points_per_side, "point_size": a.point_size,
+             "max_spread_points": a.max_spread_points, "require_spread_limit": True}
     result = run_rolling_walk_forward(frames, folds=a.folds, train_fraction=a.train_fraction,
                                       test_fraction=a.test_fraction, holdout_fraction=a.holdout_fraction, mode=a.mode, costs=costs)
     raw = json.dumps(result, indent=2)
