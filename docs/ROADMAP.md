@@ -14,6 +14,7 @@
 - [x] Receive LuxAlgo Smart Money Concepts source (partial) and document its candidate feature inventory.
 - [ ] Receive the remaining LuxAlgo source and complete source audit.
 - [x] Receive complete Wick Sequence Breakout (WSB) Pine v6 source and document logic, license and validation requirements.
+- [x] Receive complete LuxAlgo AI Channels (Clustering) Pine v5 source and document algorithm, license and validation requirements.
 - [ ] Intake further user indicators under docs/INDICATOR_INTEGRATION_STANDARD.md.
 - [ ] Create isolated modules, attribution/license records, settings and parity fixtures for accepted features.
 - [ ] Build a confluence layer that prevents correlated indicators from being double-counted.
