@@ -2,24 +2,27 @@ import os
 import tempfile
 from datetime import datetime, timezone
 import unittest
+import time
 from pathlib import Path
 from unittest.mock import patch
 from server import main as api
 from server.market_data import CandleStore
 
-def sample(n=160):
+def sample(n=160,timeframe="1h"):
+    seconds={"4h":14400,"1h":3600,"15m":900}[timeframe]
+    latest=(int(time.time())//seconds)*seconds-seconds
     rows=[]; price=2300.0
     for i in range(n):
         drift=0.32 if (i//20)%2==0 else -0.25
         op=price; close=price+drift+((i%5)-2)*0.03
-        rows.append({"time":1760000000+i*3600,"symbol":"XAUUSD","open":op,
+        rows.append({"time":latest-(n-1-i)*seconds,"symbol":"XAUUSD","open":op,
           "high":max(op,close)+0.22,"low":min(op,close)-0.20,"close":close,"volume":100+i%11})
         price=close
     return rows
 
 class ServerTradeGateTests(unittest.TestCase):
     def payload(self, data_fresh=True, spread_acceptable=True):
-        frames={tf:[api.Candle(**row) for row in sample()] for tf in ("4h","1h","15m")}
+        frames={tf:[api.Candle(**row) for row in sample(timeframe=tf)] for tf in ("4h","1h","15m")}
         return api.GoldReportRequest(timeframes=frames,data_fresh=data_fresh,spread_acceptable=spread_acceptable)
 
     def test_client_cannot_claim_freshness_or_spread_without_server_feed(self):
@@ -35,7 +38,7 @@ class ServerTradeGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
             for tf in ("4h","1h","15m"):
-                store.upsert("XAUUSD",tf,sample(),"mt5_bridge")
+                store.upsert("XAUUSD",tf,sample(timeframe=tf),"mt5_bridge")
             store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,
                 int(datetime.now(timezone.utc).timestamp())-600,"mt5_bridge")
             with patch.object(api,"STORE",store), patch.dict(os.environ,{"MAX_SPREAD_POINTS":"20"}):
