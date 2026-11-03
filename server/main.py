@@ -40,3 +40,24 @@ def candles(timeframe: str = "15m", limit: int = 300):
         "data": [],
         "message": "No live or historical feed configured. No synthetic candles are returned.",
     }
+
+from pydantic import BaseModel, Field
+from alpha_signal import analyze_alpha_signal
+
+class Candle(BaseModel):
+    time: str | int | float | None = None
+    symbol: str = "XAUUSD"
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float | None = None
+
+class AlphaAnalysisRequest(BaseModel):
+    candles: list[Candle] = Field(min_length=1, max_length=5000)
+    settings: dict = Field(default_factory=dict)
+
+@app.post("/api/analysis/alpha-signal")
+def alpha_signal_analysis(payload: AlphaAnalysisRequest):
+    candles = [item.model_dump() for item in payload.candles]
+    return analyze_alpha_signal(candles, payload.settings)
