@@ -38,3 +38,6 @@ Account balance and contract size are blank by default. The daily-loss cap is en
 - Journal entries are manual records; PnL is entered by the user and is not inferred from broker fills.
 - No broker order is placed, modified or closed by the app.
 - True market-by-order depth, aggressor-side CVD, open interest, trade prints and iceberg evidence still need a separately licensed, configured feed.
+
+
+**Phase 4 dashboard note (2026-11-04):** The manual Trade Journal panel and its dashboard fields were removed in the Phase 4 UI. Persisted journal records and internal endpoints remain for compatibility with risk-control history; no existing records are deleted.

@@ -10,7 +10,7 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.5.0 + 1H-primary analysis + risk controls + alerts + journal
+## Current status — Foundation 0.6.0 + 1H-primary analysis + risk controls + alerts + Phase 4 validation
 - React + Vite responsive frontend and Lightweight Charts surface.
 - FastAPI backend with health/configuration, SQLite fallback and Neon/PostgreSQL historical-candle persistence support, plus analysis endpoints.
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
@@ -26,7 +26,6 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - Persistent risk profile with daily loss, trade-count, open-trade, cooldown and reward/risk gates.
 - Broker-contract-aware position-size estimate when account balance and contract size are configured.
 - Confirmed 1H signal alerts with deduplication and optional browser notifications.
-- Persistent manual trade journal with open/close records and realized PnL.
 
 **Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, full multi-timeframe backtesting/walk-forward validation, production host/DNS/TLS setup and Android APK packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
 
@@ -57,7 +56,7 @@ Use the dashboard CSV importer for the selected timeframe. Required headers: `ti
 
 ## Phase 3 controls
 
-Risk settings, confirmed alerts and journal records are available through `/api/risk/settings`, `/api/alerts` and `/api/journal`. Journal entries are manual. Position-size estimates require the account balance and exact broker contract size; verify the broker specification before use. The application does not send orders.
+Risk settings and confirmed alerts are available through `/api/risk/settings` and `/api/alerts`. The internal `/api/journal` storage/API remains for compatibility with existing Phase 3 risk-control records, but the manual Trade Journal dashboard UI has been removed. Position-size estimates require account balance and exact broker contract size; verify the broker specification before use. The application does not send orders.
 
 See [Phase 3 Product Release](docs/PHASE_3_PRODUCT_RELEASE.md) for details.
 
@@ -71,3 +70,12 @@ See [Phase 3 Product Release](docs/PHASE_3_PRODUCT_RELEASE.md) for details.
 - True footprint/volume-at-price requires suitable trade-level or volume-at-price data.
 
 See [Architecture](docs/ARCHITECTURE.md), [Roadmap](docs/ROADMAP.md), [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and [Deployment](docs/DEPLOYMENT.md).
+
+
+## Phase 4 validation (v0.6.0)
+
+The current dashboard removes the Alpha Signal Research Backtest and Trade Journal panels. Their visible controls and journal-linked counters are not part of the dashboard. Existing persisted journal records are retained and not deleted.
+
+The Phase 4 validation workspace runs a server-side data preflight, 4H/1H/15M/optional-5M causal replay, base/conservative/adverse execution-cost scenarios, and chronological walk-forward folds with a sealed final holdout. Each OOS window receives up to 50 prior candles per timeframe for indicator warm-up; those context candles are not counted as OOS trades.
+
+Provider/timezone/same-feed inputs are user attestations, not independent data authentication. Pine parity requires a matching TradingView confirmed-bar export plus exact script/settings metadata. Broker costs require timestamped broker evidence; live MT5 and persistent paper-forward execution must be verified separately. A completed calculation is not a profitability claim, and the app does not place broker orders.

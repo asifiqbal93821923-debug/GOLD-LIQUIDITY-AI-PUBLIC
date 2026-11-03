@@ -18,6 +18,7 @@ try:
     from .backtest import run_alpha_1h_backtest
     from .multitimeframe_backtest import run_gold_mtf_backtest
     from .data_audit import audit_candle_history
+    from .phase4_validation import run_phase4_validation
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
@@ -29,8 +30,9 @@ except ImportError:
     from backtest import run_alpha_1h_backtest
     from multitimeframe_backtest import run_gold_mtf_backtest
     from data_audit import audit_candle_history
+    from phase4_validation import run_phase4_validation
 
-app = FastAPI(title="Project Indicator App API", version="0.5.0")
+app = FastAPI(title="Project Indicator App API", version="0.6.0")
 app.add_middleware(CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,https://asifiqbal93821923-debug.github.io").split(",") if origin.strip()],
     allow_credentials=True, allow_methods=["GET", "POST", "PUT", "OPTIONS"], allow_headers=["*"])
@@ -135,6 +137,14 @@ class GoldBacktestRequest(BaseModel):
 class HistoryAuditRequest(BaseModel):
     timeframes: dict[str, list[Candle]]
 
+class Phase4ValidationRequest(BaseModel):
+    timeframes: dict[str, list[Candle]]
+    costs: dict = Field(default_factory=dict)
+    settings: dict = Field(default_factory=dict)
+    metadata: dict = Field(default_factory=dict)
+    folds: int = Field(default=4, ge=2, le=4)
+
+
 class QuoteBridgeRequest(BaseModel):
     symbol: str = "XAUUSD"
     time: str | int | float
@@ -174,7 +184,7 @@ def root_health():
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
-    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.5.0"}
+    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.6.0"}
 
 @app.get("/api/config/status")
 def config_status():
@@ -383,6 +393,16 @@ def gold_mtf_backtest(payload: GoldBacktestRequest):
         raise HTTPException(413,"Maximum 5000 candles per timeframe for research replay.")
     timeframes={tf:[x.model_dump() for x in rows] for tf,rows in selected.items()}
     return run_gold_mtf_backtest(timeframes,costs=payload.costs,settings=payload.settings)
+
+@app.post("/api/research/phase4-validation")
+def phase4_validation(payload: Phase4ValidationRequest):
+    selected={tf:rows for tf,rows in payload.timeframes.items() if tf in {"4h","1h","15m","5m"}}
+    if any(len(rows)>6000 for rows in selected.values()):
+        raise HTTPException(413,"Maximum 6000 candles per timeframe for Phase 4 validation.")
+    timeframes={tf:[x.model_dump() for x in rows] for tf,rows in selected.items()}
+    return run_phase4_validation(timeframes,costs=payload.costs,
+        settings=payload.settings,metadata=payload.metadata,folds=payload.folds)
+
 
 @app.post("/api/backtest/alpha-1h")
 def alpha_1h_backtest(payload: BacktestRequest):

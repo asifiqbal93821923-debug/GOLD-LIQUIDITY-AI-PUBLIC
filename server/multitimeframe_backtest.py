@@ -61,7 +61,8 @@ def _fact(result:dict[str,Any], direction:str|None=None):
 
 def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
                           costs:dict[str,float]|None=None,
-                          settings:dict[str,Any]|None=None):
+                          settings:dict[str,Any]|None=None,
+                          trade_start_epoch:int|None=None):
     normalized={}
     excluded_unclosed={}
     now_epoch=int(datetime.now(timezone.utc).timestamp())
@@ -92,6 +93,10 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
         if idx<49 or idx+1>=len(h1): continue
         h1_prefix=h1[:idx+1]
         decision_close=int(h1[idx]["time"])+3600
+        # Retain pre-test candles for indicator warm-up, but only count decisions
+        # whose 1H close belongs to the OOS window.
+        if trade_start_epoch is not None and decision_close < int(trade_start_epoch):
+            continue
         h4_prefix=_closed_prefix(normalized["4h"],"4h",decision_close)
         m15_prefix=_closed_prefix(normalized["15m"],"15m",decision_close)
         m5_prefix=_closed_prefix(normalized["5m"],"5m",decision_close) if normalized["5m"] else []
