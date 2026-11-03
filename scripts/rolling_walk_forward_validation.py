@@ -14,6 +14,13 @@ REQUIRED = ("4h", "1h", "15m")
 METRICS = ("trade_count", "win_rate_pct", "net_pnl_price", "average_R",
            "profit_factor", "max_drawdown_price", "accepted_signals", "signals_evaluated")
 
+def _slice_with_warmup(rows, start_epoch, end_epoch, warmup_bars=50):
+    """Return pre-window context plus the strictly non-overlapping OOS slice."""
+    warmup = [row for row in rows if row["time"] < start_epoch][-warmup_bars:]
+    oos = [row for row in rows if start_epoch <= row["time"] < end_epoch]
+    return warmup + oos, oos
+
+
 def _metric_view(report):
     return {key: report.get(key) for key in METRICS}
 
@@ -68,10 +75,13 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
         test_end_boundary = h1[test_end]["time"] if test_end < n else h1[-1]["time"] + 3600
         train_frames = {tf: [r for r in rows if train_boundary <= r["time"] < test_boundary]
                         for tf, rows in normalized.items()}
-        test_frames = {tf: [r for r in rows if test_boundary <= r["time"] < test_end_boundary]
-                       for tf, rows in normalized.items()}
+        test_frames = {}
+        test_oos_frames = {}
+        for tf, rows in normalized.items():
+            test_frames[tf], test_oos_frames[tf] = _slice_with_warmup(
+                rows, test_boundary, test_end_boundary, warmup_bars=50)
         counts = {"train": {tf: len(train_frames.get(tf, [])) for tf in REQUIRED},
-                  "test": {tf: len(test_frames.get(tf, [])) for tf in REQUIRED}}
+                  "test": {tf: len(test_oos_frames.get(tf, [])) for tf in REQUIRED}}
         short = {part: {tf: count for tf, count in values.items() if count < min_bars}
                  for part, values in counts.items()}
         short = {k: v for k, v in short.items() if v}
@@ -81,7 +91,7 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
         # Both replays receive only their own chronological slice. Fixed settings
         # and costs are passed unchanged; no test outcome influences later folds.
         train_report = run_gold_mtf_backtest(train_frames, costs=costs, settings=settings)
-        test_report = run_gold_mtf_backtest(test_frames, costs=costs, settings=settings)
+        test_report = run_gold_mtf_backtest(test_frames, costs=costs, settings=settings, trade_start_epoch=test_boundary)
         fold_results.append({
             "fold": i + 1, "train_start_epoch": train_boundary,
             "train_end_exclusive_epoch": test_boundary,
@@ -95,13 +105,16 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
     # The final holdout is excluded from every fold's training and OOS windows.
     holdout_boundary = h1[holdout_start]["time"]
     holdout_end = h1[-1]["time"] + 3600
-    holdout_frames = {tf: [r for r in rows if holdout_boundary <= r["time"] < holdout_end]
-                      for tf, rows in normalized.items()}
-    holdout_counts = {tf: len(holdout_frames.get(tf, [])) for tf in REQUIRED}
+    holdout_frames = {}
+    holdout_oos_frames = {}
+    for tf, rows in normalized.items():
+        holdout_frames[tf], holdout_oos_frames[tf] = _slice_with_warmup(
+            rows, holdout_boundary, holdout_end, warmup_bars=50)
+    holdout_counts = {tf: len(holdout_oos_frames.get(tf, [])) for tf in REQUIRED}
     if any(v < min_bars for v in holdout_counts.values()):
         return {"status": "insufficient_history", "reason": "SEALED_HOLDOUT_TIMEFRAME_MINIMUM_FAILED",
                 "holdout_bars": holdout_counts}
-    holdout_report = run_gold_mtf_backtest(holdout_frames, costs=costs, settings=settings)
+    holdout_report = run_gold_mtf_backtest(holdout_frames, costs=costs, settings=settings, trade_start_epoch=holdout_boundary)
     valid = [f for f in fold_results if f["test_status"] == "ok"]
     all_oos_trades = sum((f["out_of_sample"].get("trade_count") or 0) for f in valid)
     all_oos_signals = sum((f["out_of_sample"].get("signals_evaluated") or 0) for f in valid)
@@ -132,7 +145,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True); ap.add_argument("--output")
     ap.add_argument("--folds", type=int, default=4)
-    ap.add_argument("--train-fraction", type=float, default=.12)
+    ap.add_argument("--train-fraction", type=float, default=.50)
     ap.add_argument("--test-fraction", type=float, default=.10)
     ap.add_argument("--holdout-fraction", type=float, default=.10)
     ap.add_argument("--mode", choices=("anchored", "rolling"), default="rolling")
