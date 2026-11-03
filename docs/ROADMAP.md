@@ -13,13 +13,16 @@
 - [x] Receive complete LuxAlgo AI Channels (Clustering) source; document algorithm, license and caveats.
 - [x] Create unified engine feature-selection and architecture blueprint.
 - [x] Add initial WAIT-first confluence decision gate and API contract.
-- [ ] Port selected features from Alpha, SMC, WSB and AI Channels into isolated engine modules; do not merge source code into one monolith.
+- [x] Upgrade decision gate to 4H macro / 1H primary / 15M structure / 5M trigger, with channel-conflict and ambiguous-liquidity vetoes.
+- [x] Add isolated SMC, WSB and AI Channels OHLCV adapters (conservative first implementations; not full Pine ports or parity-certified).
+- [x] Compose Alpha + SMC + WSB + AI Channels + liquidity proxy in Gold Report AI orchestration.
 - [x] Add first OHLCV-based institutional liquidity/footprint proxy module and Gold Report AI API contract.
 - [ ] Add licensed live order-book/MBO and trade-print provider adapter; current order-book fields remain unavailable.
 - [ ] Implement true order-level iceberg, aggressor-side CVD, open-interest and large-print feeds.
 - [ ] Build TradingView-exported golden OHLCV fixtures and certify parity per engine.
 - [ ] Fix SMC MTF lookahead/repainting risk, array-removal behavior and unbounded history retention in corrected mode.
-- [ ] Integrate calculated engine outputs with correlated-feature controls and confidence calibration.
+- [x] Integrate initial calculated engine outputs with conservative WAIT-first hierarchy and correlated context vetoes.
+- [ ] Calibrate evidence weights and confidence only after walk-forward/out-of-sample testing.
 
 ## Phase 3 — Chart and market structure
 - [ ] Render real OHLC candles on the chart for 5m, 15m, 30m, 1h, 4h and 1D.
@@ -39,6 +42,7 @@
 ## Phase 5 — Web and Android delivery
 - [ ] Connect a production market data provider and live candle stream.
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
+- [x] Add backend unit tests and GitHub Actions compile/test workflow; latest workflow result not yet verified.
 - [ ] Responsive Bengali dashboard with trend, structure, liquidity, setup and risk explanations.
 - [ ] PWA installation and offline-safe shell (market data remains online).
 - [ ] Android packaging only after web core, feed and validation are stable.
@@ -48,8 +52,9 @@
 - [x] React + Vite frontend foundation and build workflow.
 - [x] FastAPI backend foundation.
 - [x] Alpha Signal Engine initial port, endpoint and basic tests.
-- [x] Four indicator families received and reviewed at source/intake level.
-- [x] Complete SMC source-level audit recorded; not yet ported or parity-certified.
-- [x] Unified architecture and WAIT-first decision concept documented.
+- [x] SMC, WSB and AI Channels first isolated OHLCV adapters with tests (not full Pine parity ports).
+- [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
+- [x] Hierarchical 4H/1H/15M/5M WAIT-first Decision Engine connected to calculated outputs.
+- [x] Unified architecture and implementation status documented.
 - [ ] No production market feed, certified Pine parity, fully calculated trade planner, live MBO/CVD/OI feed, or Android package yet.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
