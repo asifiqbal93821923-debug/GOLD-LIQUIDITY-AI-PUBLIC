@@ -40,8 +40,8 @@
 - [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
 - [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.
 - [x] Add editable spread, slippage and commission assumptions to the research-only 1H Alpha backtest UI/API.\n- [ ] Add multi-scenario cost and session sensitivity reports.
-- [x] Add a research-only 1H Alpha flip replay with next-bar entry, cost assumptions, partial targets and conservative stop-first same-bar handling.
-- [ ] Backtest the complete 4H/1H/15M/optional-5M strategy, then run walk-forward/out-of-sample and anti-repainting checks.
+- [x] Add a research-only 1H Alpha flip replay with next-bar entry, cost assumptions, partial targets and conservative stop-first same-bar handling.\n- [x] Add a causal 4H/1H/15M/optional-5M Gold Report replay endpoint and UI; each signal only sees fully closed timeframe bars available at its 1H close.
+- [x] Implement first causal multi-timeframe Gold Report historical replay using the current Python adapters.\n- [ ] Validate full MTF replay against TradingView golden fixtures, then run walk-forward/out-of-sample and anti-repainting checks.
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
 
 ## Phase 5 — Web and Android delivery
