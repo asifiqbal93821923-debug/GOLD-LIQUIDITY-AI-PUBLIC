@@ -5,14 +5,14 @@ No scenario is broker-verified unless the input provenance says so. OHLC-only
 execution remains conservative stop-first and cannot model true intrabar fills.
 """
 from __future__ import annotations
-import argparse, json
+import argparse, json, math
 from pathlib import Path
 from server.multitimeframe_backtest import run_gold_mtf_backtest
 
 def build_scenarios(spread: float, slippage: float, commission: float,
                     point_size: float, max_spread: float) -> dict:
-    values = (spread, slippage, commission)
-    if any(x < 0 for x in values) or point_size <= 0 or max_spread < 0:
+    values = (spread, slippage, commission, point_size, max_spread)
+    if any(not math.isfinite(float(x)) for x in values) or any(x < 0 for x in (spread, slippage, commission, max_spread)) or point_size <= 0:
         raise ValueError("Costs and max spread must be non-negative; point size must be positive")
     base = {"spread_points": spread, "slippage_points": slippage,
             "commission_points_per_side": commission, "point_size": point_size,
@@ -30,7 +30,7 @@ def build_scenarios(spread: float, slippage: float, commission: float,
 def _metrics(report: dict) -> dict:
     keys = ("status", "trade_count", "win_rate_pct", "net_pnl_price",
             "average_R", "profit_factor", "max_drawdown_price",
-            "accepted_signals", "signals_evaluated", "veto_counts")
+            "accepted_signals", "signals_evaluated", "skipped_signals", "veto_counts")
     return {k: report.get(k) for k in keys}
 
 def run_cost_scenarios(frames: dict, *, spread: float, slippage: float,
@@ -59,7 +59,7 @@ def run_cost_scenarios(frames: dict, *, spread: float, slippage: float,
             "Scenario multipliers are stress assumptions, not XM360 observed costs.",
             "Session and rollover cost curves require timestamped broker quote observations; this report does not invent them."
         ],
-        "acceptance": {"scenario_engine_implemented": True,
+        "acceptance": {"scenario_engine_implemented": True,\n                       "spread_gate_fail_closed_implemented": True,
                        "broker_calibration_passed": bool((provenance or {}).get("broker_costs_verified", False)),
                        "session_rollover_quote_validation": False}
     }
