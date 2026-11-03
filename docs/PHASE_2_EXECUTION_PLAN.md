@@ -53,14 +53,22 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Execute all folds and inspect reports on verified same-feed candles with XM360-verified costs; confirm training/test separation from the produced artifact.
 
 ### P2.5 — Realistic execution-cost scenarios
-- [x] Add a reproducible base/conservative/adverse execution-cost scenario runner (`scripts/execution_cost_scenarios.py`) using identical causal MTF strategy logic.
-- [x] Validate non-negative cost inputs, positive point size, monotonic stress scenarios and closed-by-default spread gate with unit tests.
-- [x] Emit scenario metrics, cost assumptions, provenance status and explicit OHLC/intrabar execution limitations.
-- [ ] Calibrate point size, spread, slippage and commission from XM360's actual XAUUSD contract specification and observed quotes.
-- [ ] Run all three scenarios on verified same-feed history; inspect trade count, net PnL, average R, profit factor and drawdown.
-- [ ] Validate session/rollover spread and slippage using timestamped broker quote observations; do not infer these from OHLC candles.
-- [ ] Configure a defensible maximum spread from observed quotes; keep the spread gate closed until then.
-- [ ] Retain conservative stop-first handling; candle OHLC cannot resolve true intrabar execution order.
+- [x] Add reproducible base/conservative/adverse execution-cost scenarios using the same causal MTF replay (scripts/execution_cost_scenarios.py).
+- [x] Validate finite/non-negative cost inputs, positive point size, stress-scenario ordering and fail-closed spread-limit behavior with unit tests.
+- [x] Enforce the P2.5 spread gate in the actual MTF decision path: no positive maximum spread means WAIT; an observed spread above the configured cap means WAIT.
+- [x] Emit scenario metrics, explicit cost assumptions, provenance status and OHLC/intrabar execution limitations.
+- [x] Add a timestamped bid/ask quote analyzer for UTC session and user-configured rollover distributions (scripts/analyze_broker_quotes.py); reject naive timestamps, invalid/duplicate quotes and insufficient total sample size.
+- [x] Add unit tests for quote parsing, spread statistics, rollover bucketing and provenance disclaimers.
+- [x] Wire optional XM360 quote-audit execution and spread-cap inputs into the Phase 2 research workflow.
+- [ ] Review XM360's actual XAUUSD contract specification: exact symbol, point/tick size, contract size, account-type commission and trading schedule.
+- [ ] Supply and manually verify timestamped XM360 bid/ask observations; quote-tool output alone does not authenticate the broker source.
+- [ ] Calibrate actual slippage and commission from broker execution/fill evidence; bid/ask quotes alone do not establish either.
+- [ ] Run all three scenarios on verified same-feed history with verified XM360 costs; inspect trade count, net PnL, average R, profit factor and drawdown.
+- [ ] Validate each session and the documented rollover window with adequate observed quote samples; UTC buckets are diagnostic and not DST-adjusted market-session definitions.
+- [ ] Set a defensible maximum spread from reviewed observations; keep the P2.5 spread gate closed until then.
+- [x] Retain conservative stop-first handling; candle OHLC cannot resolve true intrabar execution order.
+
+P2.5 implementation status: code and unit-test scope implemented; broker-specific empirical acceptance remains pending until the evidence above is reviewed.
 
 ### P2.6 — Forward/paper validation and release gate
 - [ ] Run a logged paper-forward period after historical gates pass.
