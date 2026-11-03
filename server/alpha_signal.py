@@ -164,10 +164,12 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
                 ybar = sum(slope_window) / reg_len
                 slope = sum((x-xbar)*(slope_window[x]-ybar) for x in range(reg_len)) / denom
             slope_flat = p["slope_filter"] and slope is not None and abs(slope)/max(atr[i],1e-12) < float(p["slope_threshold"])
-            vol_flat = p["volume_filter"] and v[prev] is not None and vol_sma[prev] is not None and v[prev] <= vol_sma[prev]
+            vol_threshold = vol_sma[prev] if vol_sma[prev] is not None else ((v[prev] + 1.0) if v[prev] is not None else None)
+            vol_flat = p["volume_filter"] and v[prev] is not None and vol_threshold is not None and v[prev] <= vol_threshold
             eff_range = range_pct[prev]
             if p["volatility_fingerprint"] and eff_range is not None: eff_range *= gm
-            range_flat = p["range_filter"] and eff_range is not None and ranges[prev] is not None and ranges[prev] <= eff_range
+            range_threshold = eff_range if eff_range is not None else ((ranges[prev] + 1.0) if ranges[prev] is not None else None)
+            range_flat = p["range_filter"] and range_threshold is not None and ranges[prev] is not None and ranges[prev] <= range_threshold
             bps = abs(trend[i-1]-trend[i-2])/max(c[i-2],1e-12)*10000.0
             bps_flat = p["bps_filter"] and bps < float(p["min_bps_delta"])*gm
             bo = p["breakout_override"] and abs(c[prev]-c[prev-1]) > atr[i]*float(p["breakout_atr_multiple"])*gm
