@@ -107,6 +107,7 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
   useEffect(()=>{
     const chart=chartRef.current, series=seriesRef.current, el=host.current;
     if(!chart||!series||!el) return;
+    const ts=chart.timeScale();
     const specs=[];
     for(const tf of ['4h','1h','15m']){
       const smc=report?.timeframes?.[tf]?.smc;
@@ -114,7 +115,7 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
         .slice(-5).forEach((z,i)=>specs.push({...z,timeframe:tf,id:tf+'-'+z.zone_type+'-'+i}));
     }
     const update=()=>{
-      const width=el.clientWidth, height=el.clientHeight, ts=chart.timeScale();
+      const width=el.clientWidth, height=el.clientHeight;
       const first=candles[0]?.time, last=candles[candles.length-1]?.time;
       const next=specs.map(z=>{
         if(first==null||last==null||z.start_time>last) return null;
