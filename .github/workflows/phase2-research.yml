@@ -97,9 +97,11 @@ jobs:
             --output reports/phase2/price-action-setups.json
       - name: Generate Python reference and compare Pine export when supplied
         run: |
+          SETTINGS=""
+          if [ -s data/phase2/alpha-settings.json ]; then SETTINGS="--settings data/phase2/alpha-settings.json"; fi
           python scripts/export_python_signal_events.py \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
-            --timeframe 1h \
+            --timeframe 1h $SETTINGS \
             --output reports/phase2/python-signals-1h.csv
           if [ -s data/phase2/pine_reference_1h.csv ]; then
             python scripts/compare_tradingview_signals.py \
