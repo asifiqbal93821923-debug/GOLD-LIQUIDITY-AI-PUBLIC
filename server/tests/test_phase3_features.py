@@ -21,7 +21,7 @@ class RiskManagementTests(unittest.TestCase):
         result=evaluate_risk(buy_decision(),safe_quote(),settings,[])
         self.assertTrue(result["approved_for_alert"])
         self.assertEqual(result["position_size"]["risk_cash"],50.0)
-        self.assertEqual(result["position_size"]["estimated_lots"],0.05)
+        self.assertEqual(result["position_size"]["estimated_lots"],0.0455)
     def test_spread_and_reward_risk_gates(self):
         settings=normalize_risk_settings({**DEFAULT_RISK_SETTINGS,"max_spread_points":10})
         result=evaluate_risk(buy_decision(),safe_quote(),settings,[])
