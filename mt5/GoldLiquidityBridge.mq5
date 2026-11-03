@@ -41,6 +41,7 @@ bool SendTimeframe(ENUM_TIMEFRAMES tf)
       return false;
    }
 
+   int symbol_digits=(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS);
    string candles="[";
    for(int i=0;i<copied;i++)
    {
@@ -48,10 +49,10 @@ bool SendTimeframe(ENUM_TIMEFRAMES tf)
       candles+=StringFormat(
          "{\"time\":%I64d,\"open\":%s,\"high\":%s,\"low\":%s,\"close\":%s,\"volume\":%I64d}",
          (long)rates[i].time,
-         DoubleToString(rates[i].open,_Digits),
-         DoubleToString(rates[i].high,_Digits),
-         DoubleToString(rates[i].low,_Digits),
-         DoubleToString(rates[i].close,_Digits),
+         DoubleToString(rates[i].open,symbol_digits),
+         DoubleToString(rates[i].high,symbol_digits),
+         DoubleToString(rates[i].low,symbol_digits),
+         DoubleToString(rates[i].close,symbol_digits),
          (long)rates[i].tick_volume
       );
    }
