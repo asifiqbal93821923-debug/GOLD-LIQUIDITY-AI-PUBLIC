@@ -2,7 +2,7 @@
 #property version   "1.01"
 #property description "Pushes CLOSED XAUUSD candles from MT5 to Project Indicator App."
 
-input string InpApiBaseUrl = "http://127.0.0.1:8765";
+input string InpApiBaseUrl = "https://gold-terminal-api.onrender.com";
 input string InpBridgeToken = "SET_THE_SAME_SERVER_MARKET_INGEST_TOKEN";
 input string InpSymbol = "XAUUSD";
 input int    InpBarsToSend = 300;
