@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import os
 
-app = FastAPI(title="Project Indicator App API", version="0.2.1")
+app = FastAPI(title="Project Indicator App API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173").split(","),
@@ -14,7 +14,7 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "PROJECT INDICATOR APP", "version": "0.2.1"}
+    return {"status": "ok", "app": "PROJECT INDICATOR APP", "version": "0.3.0"}
 
 @app.get("/api/config/status")
 def config_status():
@@ -43,6 +43,7 @@ def candles(timeframe: str = "15m", limit: int = 300):
 
 from pydantic import BaseModel, Field
 from alpha_signal import analyze_alpha_signal
+from unified_decision import analyze_unified_decision
 
 class Candle(BaseModel):
     time: str | int | float | None = None
@@ -61,3 +62,8 @@ class AlphaAnalysisRequest(BaseModel):
 def alpha_signal_analysis(payload: AlphaAnalysisRequest):
     candles = [item.model_dump() for item in payload.candles]
     return analyze_alpha_signal(candles, payload.settings)
+
+@app.post("/api/analysis/unified-decision")
+def unified_decision(payload: dict):
+    """Conservative confluence gate for precomputed, confirmed engine outputs."""
+    return analyze_unified_decision(payload)
