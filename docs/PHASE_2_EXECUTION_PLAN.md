@@ -62,7 +62,7 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 ## Known blockers / external dependencies
 - No confirmed live MT5 broker feed is currently connected; user has no desktop PC for MetaTrader Desktop testing.
 - Historical store previously returned zero 1H candles in the production API. The public indicative sampled-price archive is not broker OHLCV and must not be converted into synthetic candles. The repository still has no verified same-feed 4H/1H/15M CSV dataset.
-- No TradingView golden fixture package is currently present in the repository.
+- No TradingView golden fixture package or complete exact Pine source/settings package for PRO XAU V2.0 and Advanced SMC MTF Pro is currently present in the repository; parity execution is blocked until those exports are added.
 - Actual broker spread/commission/slippage contract details have not been calibrated.
 - OHLCV footprint values are proxies, not real MBO/order-book, true aggressor CVD, open interest or iceberg data.
 
