@@ -1,5 +1,6 @@
 import unittest
-from scripts.execution_cost_scenarios import build_scenarios, run_cost_scenarios\nfrom server.multitimeframe_backtest import _spread_is_acceptable
+from scripts.execution_cost_scenarios import build_scenarios, run_cost_scenarios
+from server.multitimeframe_backtest import _spread_is_acceptable
 
 class ExecutionCostScenarioTests(unittest.TestCase):
     def test_three_scenarios_are_monotonic(self):
