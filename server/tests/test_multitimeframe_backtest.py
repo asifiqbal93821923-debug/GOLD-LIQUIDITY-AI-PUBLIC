@@ -51,4 +51,26 @@ class MultiTimeframeBacktestTests(unittest.TestCase):
         self.assertEqual(result["timeframe_policy"]["5m"],"optional latest fully closed WSB refinement")
         self.assertIn("scope_warning",result)
 
+    def test_four_hour_cutoff_uses_only_fully_closed_bars(self):
+        rows=make_rows(4,14400)
+        cutoff=BASE+28800
+        prefix=_closed_prefix(rows,"4h",cutoff)
+        self.assertEqual(len(prefix),2)
+        self.assertEqual(prefix[-1]["time"]+14400,cutoff)
+
+    def test_five_minute_cutoff_excludes_bar_closing_after_decision(self):
+        rows=make_rows(6,300)
+        cutoff=BASE+900
+        prefix=_closed_prefix(rows,"5m",cutoff)
+        self.assertEqual(len(prefix),3)
+        self.assertLessEqual(prefix[-1]["time"]+300,cutoff)
+        self.assertGreater(rows[3]["time"]+300,cutoff)
+
+    def test_cutoff_exactly_at_bar_close_includes_that_bar_only(self):
+        rows=make_rows(5,900)
+        cutoff=BASE+1800
+        prefix=_closed_prefix(rows,"15m",cutoff)
+        self.assertEqual([x["time"] for x in prefix],[BASE,BASE+900])
+        self.assertEqual(prefix[-1]["time"]+900,cutoff)
+
 if __name__=="__main__": unittest.main()
