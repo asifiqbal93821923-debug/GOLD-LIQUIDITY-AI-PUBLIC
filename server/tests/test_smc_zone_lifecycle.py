@@ -1,7 +1,10 @@
+import unittest
+from datetime import datetime, timezone
+
 from server.smc_structure import analyze_smc_structure
 
 
-def _gap_candles(invalidate=False):
+def gap_candles(invalidate=False):
     rows=[]
     for i in range(20):
         if i<10:
@@ -17,26 +20,30 @@ def _gap_candles(invalidate=False):
     return rows
 
 
-def test_fvg_zone_has_epoch_start_time_and_active_lifecycle():
-    result=analyze_smc_structure(_gap_candles())
-    zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
-    assert zones
-    assert zones[0]["status"]=="active"
-    assert zones[0]["start_time"]==1_800_000_000+10*3600
-    assert zones[0]["high"]>zones[0]["low"]
+class TestSMCZoneLifecycle(unittest.TestCase):
+    def test_fvg_zone_has_epoch_start_time_and_active_lifecycle(self):
+        result=analyze_smc_structure(gap_candles())
+        zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
+        self.assertTrue(zones)
+        self.assertEqual(zones[0]["status"],"active")
+        self.assertEqual(zones[0]["start_time"],1_800_000_000+10*3600)
+        self.assertGreater(zones[0]["high"],zones[0]["low"])
+
+    def test_fvg_zone_is_invalidated_by_close_through_far_boundary(self):
+        result=analyze_smc_structure(gap_candles(invalidate=True))
+        zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
+        self.assertTrue(zones)
+        self.assertEqual(zones[0]["status"],"invalidated")
+
+    def test_timestamp_can_be_iso8601(self):
+        rows=gap_candles()
+        rows[10]["time"]="2027-01-15T10:00:00Z"
+        result=analyze_smc_structure(rows)
+        zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
+        expected=int(datetime(2027,1,15,10,tzinfo=timezone.utc).timestamp())
+        self.assertTrue(zones)
+        self.assertEqual(zones[0]["start_time"],expected)
 
 
-def test_fvg_zone_is_invalidated_by_close_through_far_boundary():
-    result=analyze_smc_structure(_gap_candles(invalidate=True))
-    zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
-    assert zones
-    assert zones[0]["status"]=="invalidated"
-
-
-def test_timestamp_can_be_iso8601():
-    rows=_gap_candles()
-    rows[10]["time"]="2027-01-15T10:00:00Z"
-    result=analyze_smc_structure(rows)
-    zones=[z for z in result["zones"] if z["zone_type"]=="fvg"]
-    assert zones
-    assert zones[0]["start_time"]==int(__import__("datetime").datetime(2027,1,15,10,tzinfo=__import__("datetime").timezone.utc).timestamp())
+if __name__=="__main__":
+    unittest.main()
