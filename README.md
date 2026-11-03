@@ -10,16 +10,16 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.3.0 + initial decision gate
+## Current status — Foundation 0.4.0 + 1H-primary analysis + historical import
 - React + Vite responsive frontend and Lightweight Charts surface.
-- FastAPI backend with health/configuration/candle endpoints.
+- FastAPI backend with health/configuration, SQLite historical-candle import/retrieval and analysis endpoints.
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
 - Source intake reviews for Alpha Signal, LuxAlgo SMC (partial source), WSB and AI Channels.
 - Unified feature-selection architecture: [Unified Gold Engine Blueprint](docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
-- Initial WAIT-first confluence module and POST /api/analysis/unified-decision endpoint. It accepts precomputed, confirmed timeframe/structure/trigger evidence and a valid risk plan; it does not yet calculate those inputs itself.
+- 1H-primary Gold Report orchestrator: 4H macro context, 1H direction/trade-plan source, 15M setup confirmation and optional 5M refinement.\n- CSV historical-candle import, SQLite persistence, candlestick chart rendering and initial 1H SMC candidate-level overlays.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
-**Not yet complete:** production market feed, complete indicator ports, TradingView parity, automatic structure/zones, calculated entry/SL/TP, backtesting, deployment and Android packaging. This is an early engineering foundation, not a finished trading system.
+**Not yet complete:** live/provider feed, full Pine parity, fully validated zones and trade planning, spread/cost model, backtesting, deployment, PWA and Android packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
 
 ## Market-data decision
 Primary-source preference: use the user's own MT5 broker feed (through a secure server-side bridge) where practical, because it best matches the quote stream used for execution. A licensed external XAUUSD feed is the fallback. A provider will only be selected after checking symbol availability, WebSocket entitlement, historical depth, latency, terms and cost. Never expose provider API keys in the browser or commit secrets.
@@ -41,7 +41,7 @@ npm install
 npm run dev
 ```
 
-The Vite development server proxies `/api` to the local FastAPI server.
+The Vite development server proxies `/api` to the local FastAPI server.\n\n### Import historical candles\nUse the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`.
 
 ## Security and trading safeguards
 - Store secrets in server environment variables only.
