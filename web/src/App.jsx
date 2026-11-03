@@ -34,13 +34,18 @@ const FREE_INTRADAY_URL='https://xaus.com/api/v1/intraday?symbol=xau&hours=48';
 const FREE_BUCKET_SECONDS={'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400};
 async function loadFreePublicGoldCandles(frame){
   if(frame==='3m') throw new Error('ফ্রি পাবলিক Feed ৩ মিনিটের ডেটা দেয় না। ৫M বা ১৫M বেছে নিন।');
-  // Prefer the scheduled GitHub Actions snapshot; fall back to the public XAUS endpoint.
-  let payload=null, snapshotSource='scheduled_snapshot';
-  try{
-    const snapshotResponse=await fetch(import.meta.env.BASE_URL+'data/market-snapshot.json',{cache:'no-store',headers:{Accept:'application/json'}});
-    if(snapshotResponse.ok) payload=await snapshotResponse.json();
-  }catch(_){}
-  if(!payload||!Array.isArray(payload.points)||!payload.points.length){
+  // Prefer the cumulative scheduled archive, then the latest snapshot, then direct XAUS.
+  let payload=null, snapshotSource='scheduled_history_archive';
+  for(const file of ['market-history.json','market-snapshot.json']){
+    try{
+      const response=await fetch(import.meta.env.BASE_URL+'data/'+file,{cache:'no-store',headers:{Accept:'application/json'}});
+      if(response.ok){
+        const candidate=await response.json();
+        if(Array.isArray(candidate.points)&&candidate.points.length){payload=candidate;break;}
+      }
+    }catch(_){}
+  }
+  if(!payload){
     snapshotSource='direct_public_api';
     const response=await fetch(FREE_INTRADAY_URL,{headers:{Accept:'application/json'}});
     if(!response.ok) throw new Error('ফ্রি Gold Feed unavailable: HTTP '+response.status);
