@@ -88,14 +88,15 @@ bool SendQuote()
    double ask=SymbolInfoDouble(InpSymbol,SYMBOL_ASK);
    double point=SymbolInfoDouble(InpSymbol,SYMBOL_POINT);
    if(bid<=0 || ask<bid || point<=0) return false;
-   string body=StringFormat("{\\"symbol\\":\\"XAUUSD\\",\\"time\\":%I64d,\\"bid\\":%s,\\"ask\\":%s,\\"point\\":%s}",
-      (long)TimeCurrent(),DoubleToString(bid,(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS)),
-      DoubleToString(ask,(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS)),DoubleToString(point,10));
-   string headers="Content-Type: application/json\\r\\nX-Bridge-Token: "+InpBridgeToken+"\\r\\n";
+   int digits=(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS);
+   string body=StringFormat("{\"symbol\":\"XAUUSD\",\"time\":%I64d,\"bid\":%s,\"ask\":%s,\"point\":%s}",
+      (long)TimeCurrent(),DoubleToString(bid,digits),DoubleToString(ask,digits),DoubleToString(point,10));
+   string headers="Content-Type: application/json\r\nX-Bridge-Token: "+InpBridgeToken+"\r\n";
    char post_data[],result[];
    StringToCharArray(body,post_data,0,WHOLE_ARRAY,CP_UTF8);
    if(ArraySize(post_data)>0) ArrayResize(post_data,ArraySize(post_data)-1);
    string response_headers;
+   ResetLastError();
    int status=WebRequest("POST",InpApiBaseUrl+"/api/market/quote/bridge",headers,10000,post_data,result,response_headers);
    if(status<200 || status>=300)
    {
