@@ -48,4 +48,37 @@ class UnifiedDecisionTests(unittest.TestCase):
         p=valid_payload(); p["trade_plan"]["stop_loss"]=2701
         self.assertEqual(analyze_unified_decision(p)["decision"],"WAIT")
 
+    def test_5m_missing_or_unconfirmed_does_not_block_primary_setup(self):
+        p=valid_payload()
+        p["5m_trigger"]={"status":"ok","direction":"bearish","confirmed":False}
+        self.assertEqual(analyze_unified_decision(p)["decision"],"BUY")
+        p.pop("5m_trigger")
+        self.assertEqual(analyze_unified_decision(p)["decision"],"BUY")
+
+    def test_trade_plan_must_explicitly_be_from_1h(self):
+        p=valid_payload(); p["trade_plan"]["source_timeframe"]="15m"
+        x=analyze_unified_decision(p)
+        self.assertEqual(x["decision"],"WAIT")
+        self.assertIn("TRADE_PLAN_NOT_FROM_ONE_HOUR",x["reason_codes"])
+
+    def test_non_finite_or_boolean_levels_are_rejected(self):
+        p=valid_payload(); p["trade_plan"]["targets"][1]=float("nan")
+        x=analyze_unified_decision(p)
+        self.assertEqual(x["decision"],"WAIT")
+        self.assertIn("TRADE_PLAN_LEVELS_INVALID",x["reason_codes"])
+        p=valid_payload(); p["trade_plan"]["stop_loss"]=True
+        self.assertIn("TRADE_PLAN_LEVELS_INVALID",analyze_unified_decision(p)["reason_codes"])
+
+    def test_non_positive_prices_are_rejected(self):
+        p=valid_payload(); p["trade_plan"]["entry"]=[0,2]
+        x=analyze_unified_decision(p)
+        self.assertEqual(x["decision"],"WAIT")
+        self.assertIn("TRADE_PLAN_LEVELS_INVALID",x["reason_codes"])
+
+    def test_missing_4h_or_15m_evidence_waits(self):
+        p=valid_payload(); p["4h_bias"]["status"]="not_available"
+        self.assertEqual(analyze_unified_decision(p)["decision"],"WAIT")
+        p=valid_payload(); p["15m_setup"]["status"]="not_available"
+        self.assertEqual(analyze_unified_decision(p)["decision"],"WAIT")
+
 if __name__=="__main__": unittest.main()
