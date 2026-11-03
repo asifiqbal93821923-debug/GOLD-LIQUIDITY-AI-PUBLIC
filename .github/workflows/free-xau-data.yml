@@ -1,0 +1,36 @@
+name: Free XAU sampled data collector
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: free-xau-data-collector
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Validate and save public XAUS samples
+        run: python scripts/collect_free_xau.py
+      - name: Commit updated public snapshot
+        run: |
+          if git diff --quiet -- web/public/data/market-snapshot.json; then
+            echo "No data changes; skipping commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data/market-snapshot.json
+          git commit -m "chore(data): refresh free XAUS sampled snapshot"
+          git push
