@@ -56,6 +56,6 @@ def main():
       "commission_points_per_side":a.commission_points_per_side,"point_size":a.point_size}
     result=run_walk_forward(frames,a.train_fraction,costs)
     raw=json.dumps(result,indent=2)
-    if a.output: Path(a.output).write_text(raw+"\\n",encoding="utf-8")
+    if a.output: Path(a.output).write_text(raw+"\n",encoding="utf-8")
     print(raw)
 if __name__=="__main__": main()
