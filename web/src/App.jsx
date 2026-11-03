@@ -29,6 +29,34 @@ function parseCsv(text){
   });
 }
 
+
+const FREE_INTRADAY_URL='https://xaus.com/api/v1/intraday?symbol=xau&hours=48';
+const FREE_BUCKET_SECONDS={'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400};
+async function loadFreePublicGoldCandles(frame){
+  if(frame==='3m') throw new Error('ফ্রি পাবলিক Feed ৩ মিনিটের ডেটা দেয় না। ৫M বা ১৫M বেছে নিন।');
+  const response=await fetch(FREE_INTRADAY_URL,{headers:{Accept:'application/json'}});
+  if(!response.ok) throw new Error('ফ্রি Gold Feed unavailable: HTTP '+response.status);
+  const payload=await response.json();
+  const points=Array.isArray(payload.points)?payload.points:[];
+  const clean=points.map(p=>({time:Number(p.t),price:Number(p.p)}))
+    .filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.price)&&p.price>0)
+    .sort((a,b)=>a.time-b.time);
+  if(clean.length<3) throw new Error('ফ্রি Feed-এ পর্যাপ্ত sampled price নেই।');
+  const latestAge=Date.now()/1000-clean[clean.length-1].time;
+  if(latestAge<0||latestAge>900) throw new Error('ফ্রি Feed-এর সর্বশেষ sample ১৫ মিনিটের বেশি পুরোনো; stale data দেখানো বন্ধ রাখা হয়েছে।');
+  const bucket=FREE_BUCKET_SECONDS[frame];
+  if(!bucket) throw new Error('এই timeframe-এর জন্য ফ্রি Feed সমর্থিত নয়।');
+  const grouped=new Map();
+  for(const p of clean){
+    const start=Math.floor(p.time/bucket)*bucket;
+    const row=grouped.get(start);
+    if(!row) grouped.set(start,{time:start,open:p.price,high:p.price,low:p.price,close:p.price,volume:0});
+    else {row.high=Math.max(row.high,p.price);row.low=Math.min(row.low,p.price);row.close=p.price;}
+  }
+  const rows=[...grouped.values()].sort((a,b)=>a.time-b.time);
+  return {rows,source:'free_public_sampled',sampleAge:Math.round(latestAge),state:payload.data_state?.status||'unknown'};
+}
+
 function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
   const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]); const [zoneRects,setZoneRects]=useState([]);
   useEffect(()=>{
@@ -104,7 +132,7 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
   },[report,candles]);
   return <section className="card chart-card">
     <div className="section-head"><div><span className="eyebrow">PRICE ACTION · XAUUSD</span><h2>Gold Spot <span className="muted">· Main Trading TF: 1H</span></h2></div>
-      <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?(dataKind==='mt5_bridge'?'MT5 BRIDGE':'HISTORICAL DATA'):'NO DATA'}</span></div>
+      <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?(dataKind==='mt5_bridge'?'MT5 BRIDGE':dataKind==='free_public_sampled'?'FREE PUBLIC · SAMPLED':'HISTORICAL DATA'):'NO DATA'}</span></div>
     <div className="tf-row">{timeframes.map(t=><button key={t} className={timeframe===t?'tf active':'tf'} onClick={()=>setTimeframe(t)}>{t.toUpperCase()}</button>)}
       <button className="tf reload" onClick={onReload} disabled={loading}><RefreshCw size={13}/> Reload</button></div>
     <div ref={host} className="chart-host" aria-label="XAUUSD historical candlestick chart">
@@ -112,7 +140,7 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
         <span style={{color:z.color}}>{z.label}</span></div>)}</div>
     </div>
     {!candles.length&&<div className="chart-overlay"><CandlestickChart size={25}/><b>{loading?'Candle লোড হচ্ছে…':'এই Timeframe-এর Candle Data নেই'}</b><span>MT5 বা CSV থেকে Historical Candle Import করুন। কোনো Synthetic Price দেখানো হচ্ছে না।</span></div>}
-    <div className="chart-foot">চার্ট: {labels[timeframe]} · {candles.length} candles · {dataKind==='mt5_bridge'?'Recent MT5 closed candles':'Historical import only'} · Active candle-derived zones: {zoneRects.length}</div>
+    <div className="chart-foot">চার্ট: {labels[timeframe]} · {candles.length} candles · {dataKind==='mt5_bridge'?'Recent MT5 closed candles':dataKind==='free_public_sampled'?'XAUS public 5-minute samples aggregated to '+timeframe.toUpperCase()+' (indicative, not XM ticks)':'Historical import only'} · Active candle-derived zones: {zoneRects.length}</div>
   </section>;
 }
 
@@ -138,13 +166,25 @@ export default function App(){
   const loadCandles=useCallback(async (frame=tf)=>{
     setLoading(true); setMessage('');
     try{
-      const res=await fetch(API+'/api/market/candles?timeframe='+encodeURIComponent(frame)+'&limit=3000');
-      if(!res.ok) throw new Error('Candle API request failed: '+res.status);
-      const data=await res.json(); const rows=data.data||[];
-      setCandles(rows); setDataKind(data.data_kind||'historical_import'); setCounts(old=>({...old,[frame]:data.count||rows.length}));
+      let rows=[],kind='historical_import';
+      try{
+        const res=await fetch(API+'/api/market/candles?timeframe='+encodeURIComponent(frame)+'&limit=3000');
+        if(res.ok){
+          const data=await res.json();
+          rows=data.data||[];
+          kind=data.data_kind||'historical_import';
+        }
+      }catch(_){}
+      if(!rows.length){
+        const free=await loadFreePublicGoldCandles(frame);
+        rows=free.rows;kind=free.source;
+        setMessage('ফ্রি পাবলিক Gold Feed চলছে: ৫-মিনিটে সংগৃহীত sample থেকে '+frame.toUpperCase()+' bar তৈরি। এটি XM Broker Tick/আসল OHLCV নয়; ট্রেড execution-এর জন্য ব্যবহার করবেন না।');
+      }
+      setCandles(rows);setDataKind(kind);setCounts(old=>({...old,[frame]:rows.length}));
       return rows;
-    }catch(e){setMessage('ডেটা লোড করা যায়নি: '+e.message);setCandles([]);setDataKind('historical_import');return [];}
-    finally{setLoading(false);}
+    }catch(e){
+      setMessage('ডেটা লোড করা যায়নি: '+e.message);setCandles([]);setDataKind('historical_import');return [];
+    }finally{setLoading(false);}
   },[tf]);
 
   useEffect(()=>{fetch('/api/health').then(r=>r.ok?r.json():Promise.reject()).then(()=>setApi('online')).catch(()=>setApi('offline'));
