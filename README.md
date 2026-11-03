@@ -20,10 +20,11 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - CSV historical-candle import, SQLite persistence, candlestick chart rendering and initial 1H SMC candidate-level overlays.
 - Authenticated MT5 Expert Advisor bridge for closed candles and Bid/Ask spread snapshots; actual live connection requires server token configuration and EA installation.
 - Installable PWA manifest, icon and offline app-shell cache; market/API data intentionally remains online-only.
+- Dockerfiles, Compose configuration and CI image-build checks for local/VPS deployment.
 - Research-only 1H Alpha flip replay endpoint with next-bar execution, conservative stop-first same-bar handling, partial TP exits and editable spread/slippage/commission assumptions.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
-**Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, full multi-timeframe backtesting/walk-forward validation, deployment and Android APK packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
+**Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, full multi-timeframe backtesting/walk-forward validation, production host/DNS/TLS setup and Android APK packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
 
 ## Market-data decision
 Primary-source preference: use the user's own MT5 broker feed (through a secure server-side bridge) where practical, because it best matches the quote stream used for execution. A licensed external XAUUSD feed is the fallback. A provider will only be selected after checking symbol availability, WebSocket entitlement, historical depth, latency, terms and cost. Never expose provider API keys in the browser or commit secrets.
@@ -59,4 +60,4 @@ Use the dashboard CSV importer for the selected timeframe. Required headers: `ti
 - Candle-based liquidity heuristics do not reveal all OTC pending orders, bank order books or actual institutional positions.
 - True footprint/volume-at-price requires suitable trade-level or volume-at-price data.
 
-See [Architecture](docs/ARCHITECTURE.md) and [Roadmap](docs/ROADMAP.md).
+See [Architecture](docs/ARCHITECTURE.md), [Roadmap](docs/ROADMAP.md), [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and [Deployment](docs/DEPLOYMENT.md).
