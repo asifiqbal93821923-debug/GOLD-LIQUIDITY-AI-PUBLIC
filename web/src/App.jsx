@@ -88,6 +88,8 @@ export default function App(){
   const [report,setReport]=useState(null);
   const [backtest,setBacktest]=useState(null);
   const [backtestBusy,setBacktestBusy]=useState(false);
+  const [mtfBacktest,setMtfBacktest]=useState(null);
+  const [mtfBusy,setMtfBusy]=useState(false);
   const [costs,setCosts]=useState({point_size:0.01,spread_points:20,slippage_points:5,commission_points_per_side:0});
   const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
@@ -164,6 +166,23 @@ export default function App(){
   };
 
 
+
+  const runMtfBacktest=async()=>{
+    setMtfBusy(true);setMtfBacktest(null);setMessage('');
+    try{
+      const frames={};
+      for(const frame of ['4h','1h','15m','5m']){
+        const res=await fetch('/api/market/candles?timeframe='+frame+'&limit=3000');
+        const d=await res.json();frames[frame]=d.data||[];
+      }
+      for(const frame of ['4h','1h','15m']) if(frames[frame].length<50) throw new Error(frame.toUpperCase()+'-এ অন্তত ৫০টি Candle দরকার।');
+      if(frames['5m'].length<30) delete frames['5m'];
+      const res=await fetch('/api/backtest/gold-mtf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timeframes:frames,costs})});
+      const data=await res.json();if(!res.ok)throw new Error(data.detail||data.reason||'MTF backtest failed');setMtfBacktest(data);
+    }catch(e){setMessage('MTF Backtest Error: '+e.message);}
+    finally{setMtfBusy(false);}
+  };
+
   const decision=report?.decision||{};
   const plan=decision.trade_plan;
   return <main className="shell">
@@ -203,7 +222,7 @@ export default function App(){
 
 
     <section className="card report-card">
-      <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><button className="action-btn" onClick={runBacktest}>Run Backtest</button></div>
+      <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><div className="backtest-actions"><button className="action-btn" onClick={runBacktest}>Run 1H Alpha</button><button className="action-btn secondary" onClick={runMtfBacktest} disabled={mtfBusy}>{mtfBusy?"Replay…":"Run Full MTF Replay"}</button></div></div>
       <p className="backtest-note">এটি শুধু Alpha Signal Engine-এর ১H flip replay; সম্পূর্ণ 4H/1H/15M Gold Report strategy নয়। Broker-এর প্রকৃত execution cost বসাও।</p>
       <div className="cost-inputs">
         <label>Point Size<input type="number" min="0.000001" step="0.001" value={costs.point_size} onChange={e=>setCosts(v=>({...v,point_size:Number(e.target.value)}))}/></label>
