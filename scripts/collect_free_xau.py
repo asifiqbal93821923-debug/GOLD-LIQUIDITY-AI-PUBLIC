@@ -4,6 +4,7 @@
 This is sampled public spot data, not XM Bid/Ask, exchange OHLCV, or execution data.
 """
 import json
+import math
 import sys
 import time
 import urllib.request
@@ -29,7 +30,7 @@ def read_points(path):
             stamp, price = int(float(item["t"])), float(item["p"])
         except (KeyError, TypeError, ValueError):
             continue
-        if stamp > 0 and price > 0:
+        if stamp > 0 and math.isfinite(price) and price > 0:
             result.append({"t": stamp, "p": price})
     return result
 
@@ -42,7 +43,11 @@ def main():
     with urllib.request.urlopen(request, timeout=25) as response:
         payload = json.loads(response.read().decode("utf-8"))
 
+    if not isinstance(payload, dict):
+        raise RuntimeError("XAUS response is not a JSON object")
     incoming = read_points_from_payload(payload)
+    incoming = list({p["t"]: p for p in incoming}.values())
+    incoming.sort(key=lambda p: p["t"])
     if len(incoming) < 3:
         raise RuntimeError("XAUS returned fewer than 3 valid samples")
 
@@ -89,8 +94,9 @@ def read_points_from_payload(payload):
             stamp, price = int(float(item["t"])), float(item["p"])
         except (KeyError, TypeError, ValueError):
             continue
-        if stamp > 0 and price > 0:
+        if stamp > 0 and math.isfinite(price) and price > 0:
             points.append({"t": stamp, "p": price})
+    points = list({item["t"]: item for item in points}.values())
     points.sort(key=lambda item: item["t"])
     return points
 
