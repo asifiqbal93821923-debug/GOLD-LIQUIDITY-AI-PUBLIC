@@ -10,12 +10,12 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.1.0
+## Current status — Foundation 0.2.0 + Engine 01 initial port
 The clean application foundation has been committed:
 - React + Vite responsive frontend.
 - Lightweight Charts integration.
 - FastAPI backend health/configuration/candle endpoints.
-- Architecture and development roadmap.
+- Architecture and development roadmap.\n- Initial Alpha Signal Engine Pro calculation port, API endpoint and unit tests (parity validation pending).
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
 **Not yet complete:** live market data, Pine Script conversion, analysis calculations, entry signals, backtesting, deployment and Android packaging. The first working screen is a foundation, not a finished trading system.
