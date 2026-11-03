@@ -75,3 +75,19 @@ Last reconciled: 2026-11-03
 - MT5 EA source is committed but has not been compiled in MetaEditor or connected to the user's broker terminal.
 - No real broker feed is currently confirmed. No live institutional order book, MBO, true CVD or OI feed is connected.
 - The app does not place broker orders. No BUY/SELL output should be treated as a profit guarantee.
+
+
+## F. Phase 3 — Risk controls, alerts and trade records
+
+- [x] Remove the Phase 2 research acceptance tracker from the main dashboard; Phase 2 research files and workflows remain available as engineering reference.
+- [x] Add a persistent risk profile using the same configured SQLite/PostgreSQL database as historical candles.
+- [x] Enforce TP1 minimum reward/risk, maximum trades/day, maximum open trades, cooldown, optional stricter user spread ceiling and daily-loss limit when balance is configured.
+- [x] Calculate a position-size estimate only when account balance and exact broker contract size are explicitly configured.
+- [x] Add confirmed 1H signal events with direction-transition deduplication and durable alert history.
+- [x] Add optional browser notifications with explicit user permission.
+- [x] Add a persistent manual trade journal with open/close status, exit price and user-entered realized PnL.
+- [ ] Validate persistence on the deployed database by writing settings and a test journal record, then reading after restart.
+- [ ] Verify Phase 3 UI on the real Android browser and notification permission behavior.
+- [ ] Verify the user's authenticated MT5 feed and broker-calibrated server spread cap before claiming live alerts are operational.
+
+Phase 3 is an analysis, risk-control and recordkeeping layer. It does not place, modify or close broker orders. Institutional MBO/order-book, true CVD, OI and iceberg detection still require licensed feeds.
