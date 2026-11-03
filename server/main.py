@@ -44,7 +44,8 @@ def candles(timeframe: str = "15m", limit: int = 300):
 from pydantic import BaseModel, Field
 from alpha_signal import analyze_alpha_signal
 from unified_decision import analyze_unified_decision
-from institutional_footprint import analyze_institutional_footprint, build_gold_report
+from institutional_footprint import analyze_institutional_footprint
+from gold_report import build_gold_report
 
 class Candle(BaseModel):
     time: str | int | float | None = None
@@ -76,6 +77,8 @@ class FootprintAnalysisRequest(BaseModel):
 
 class GoldReportRequest(BaseModel):
     timeframes: dict[str, list[Candle]]
+    data_fresh: bool = False
+    spread_acceptable: bool = False
 
 @app.post("/api/analysis/institutional-footprint")
 def institutional_footprint_analysis(payload: FootprintAnalysisRequest):
@@ -91,4 +94,4 @@ def gold_report_analysis(payload: GoldReportRequest):
         for tf, rows in payload.timeframes.items()
         if tf in {"4h", "1h", "15m", "5m"}
     }
-    return build_gold_report(timeframes)
+    return build_gold_report(timeframes, data_fresh=payload.data_fresh, spread_acceptable=payload.spread_acceptable)
