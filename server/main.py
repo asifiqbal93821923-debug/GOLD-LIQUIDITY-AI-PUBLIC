@@ -15,6 +15,7 @@ try:
     from .market_data import CandleStore, validate_candles, to_epoch_seconds
     from .backtest import run_alpha_1h_backtest
     from .multitimeframe_backtest import run_gold_mtf_backtest
+    from .data_audit import audit_candle_history
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
@@ -23,6 +24,7 @@ except ImportError:
     from market_data import CandleStore, validate_candles, to_epoch_seconds
     from backtest import run_alpha_1h_backtest
     from multitimeframe_backtest import run_gold_mtf_backtest
+    from data_audit import audit_candle_history
 
 app = FastAPI(title="Project Indicator App API", version="0.4.0")
 app.add_middleware(CORSMiddleware,
@@ -123,6 +125,9 @@ class GoldBacktestRequest(BaseModel):
     timeframes: dict[str, list[Candle]]
     settings: dict = Field(default_factory=dict)
     costs: dict = Field(default_factory=dict)
+
+class HistoryAuditRequest(BaseModel):
+    timeframes: dict[str, list[Candle]]
 
 class QuoteBridgeRequest(BaseModel):
     symbol: str = "XAUUSD"
@@ -255,6 +260,20 @@ def get_market_quote(symbol: str="XAUUSD"):
       "source":quote["source"],"updated_at":quote["updated_at"],"reason":state.get("reason"),
       "message":"Spread within configured limit." if state["acceptable"] else "Spread gate closed: actual tick stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
+
+@app.post("/api/market/history/audit")
+def market_history_audit(payload: HistoryAuditRequest):
+    now=int(datetime.now(timezone.utc).timestamp())
+    reports={}
+    for tf, rows in payload.timeframes.items():
+        if tf not in {"4h","1h","15m","5m"}:
+            reports[tf]={"status":"unsupported_timeframe"}
+            continue
+        if len(rows)>100000:
+            raise HTTPException(413,"Maximum 100000 candles per timeframe for data audit.")
+        reports[tf]=audit_candle_history([x.model_dump() for x in rows],tf,now)
+    return {"status":"ok","symbol":"XAUUSD","checked_at":datetime.now(timezone.utc).isoformat(),
+      "reports":reports,"note":"Audit only; no candles are synthesized or modified."}
 
 @app.post("/api/backtest/gold-mtf")
 def gold_mtf_backtest(payload: GoldBacktestRequest):
