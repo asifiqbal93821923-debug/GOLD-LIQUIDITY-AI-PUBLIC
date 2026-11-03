@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
+import math
 try:
     from .market_data import validate_candles
     from .alpha_signal import analyze_alpha_signal
@@ -40,6 +41,17 @@ def _closed_prefix(rows:list[dict[str,Any]], timeframe:str, cutoff:int):
         if int(row["time"])+duration<=cutoff: end+=1
         else: break
     return rows[:end]
+
+def _spread_is_acceptable(costs:dict[str,Any]|None) -> bool:
+    """Fail closed when P2.5 explicitly requires a defensible spread limit."""
+    if not costs or not costs.get("require_spread_limit", False):
+        return True
+    try:
+        limit=float(costs.get("max_spread_points", 0))
+        observed=float(costs.get("spread_points", 0))
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(limit) and math.isfinite(observed) and limit > 0 and 0 <= observed <= limit
 
 def _fact(result:dict[str,Any], direction:str|None=None):
     if result.get("status")!="ok":
@@ -105,9 +117,7 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
         ai1=analyze_ai_channels(h1_prefix,(settings or {}).get("ai_channels"))
         liq1=analyze_institutional_footprint(h1_prefix,(settings or {}).get("liquidity"))
         liq15=analyze_institutional_footprint(m15_prefix,(settings or {}).get("liquidity"))
-        max_spread=float((costs or {}).get("max_spread_points",0) or 0)
-        spread_points=float((costs or {}).get("spread_points",0) or 0)
-        spread_ok=(max_spread<=0 or spread_points<=max_spread)
+        spread_ok=_spread_is_acceptable(costs)
         decision=analyze_unified_decision({
           "data":{"fresh":True,"complete":True},
           "4h_bias":_fact(h4_alpha),
@@ -136,5 +146,8 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
       "excluded_unclosed_candles":excluded_unclosed,
       "timeframe_policy":{"4h":"latest fully closed macro candle","1h":"primary Alpha direction and trade plan",
         "15m":"latest fully closed SMC setup","5m":"optional latest fully closed WSB refinement"},
+      "spread_gate":{"required":bool((costs or {}).get("require_spread_limit", False)),
+        "acceptable":_spread_is_acceptable(costs),
+        "max_spread_points":(costs or {}).get("max_spread_points")},
       "scope_warning":"Research replay only. Uses current Python adapters, not certified Pine parity. 1H trade-plan parameters are supplied by the caller (defaults remain uncalibrated); spread/costs are user assumptions. OHLC bars cannot resolve intrabar order, handled conservatively stop-first."})
     return result

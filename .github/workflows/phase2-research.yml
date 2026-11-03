@@ -29,6 +29,26 @@ on:
         required: true
         default: "0.01"
         type: string
+      max_spread_points:
+        description: "Observed defensible maximum spread; 0 keeps P2.5 replay signals blocked"
+        required: true
+        default: "0"
+        type: string
+      xm360_symbol:
+        description: "Exact XM360 XAUUSD contract symbol"
+        required: true
+        default: "XAUUSD"
+        type: string
+      rollover_start_utc:
+        description: "Broker-documented rollover window start in UTC (HH:MM); required only with quote CSV"
+        required: false
+        default: ""
+        type: string
+      rollover_end_utc:
+        description: "Broker-documented rollover window end in UTC (HH:MM); required only with quote CSV"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -94,6 +114,31 @@ jobs:
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/walk-forward.json
+      - name: P2.5 base, conservative and adverse execution-cost scenarios
+        run: |
+          python -m scripts.execution_cost_scenarios \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --spread-points "${{ inputs.spread_points }}" \
+            --slippage-points "${{ inputs.slippage_points }}" \
+            --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
+            --point-size "${{ inputs.point_size }}" \
+            --max-spread-points "${{ inputs.max_spread_points }}" \
+            --output reports/phase2/execution-cost-scenarios.json
+      - name: P2.5 audit observed XM360 bid-ask quotes by UTC session and rollover
+        run: |
+          if [ -s data/phase2/xm360_quotes.csv ]; then
+            test -n "${{ inputs.rollover_start_utc }}" || (echo "rollover_start_utc required when xm360_quotes.csv is supplied" && exit 1)
+            test -n "${{ inputs.rollover_end_utc }}" || (echo "rollover_end_utc required when xm360_quotes.csv is supplied" && exit 1)
+            python -m scripts.analyze_broker_quotes \
+              --input data/phase2/xm360_quotes.csv \
+              --broker XM360 \
+              --symbol "${{ inputs.xm360_symbol }}" \
+              --rollover-start-utc "${{ inputs.rollover_start_utc }}" \
+              --rollover-end-utc "${{ inputs.rollover_end_utc }}" \
+              --output reports/phase2/xm360-quote-session-audit.json
+          else
+            echo "No XM360 quote observations supplied; broker session/rollover empirical validation remains pending."
+          fi
       - name: False-breakout, sweep and retest diagnostics
         run: |
           python -m scripts.analyze_price_action_setups \
@@ -121,5 +166,6 @@ jobs:
           path: |
             reports/phase2/
             data/phase2/pine_reference_1h.csv
+            reports/phase2/xm360-quote-session-audit.json
           if-no-files-found: warn
           retention-days: 30
