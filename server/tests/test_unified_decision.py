@@ -30,7 +30,7 @@ class UnifiedDecisionTests(unittest.TestCase):
         payload["5m_trigger"]["direction"] = "bearish"
         result = analyze_unified_decision(payload)
         self.assertEqual(result["decision"], "WAIT")
-        self.assertIn("TIMEFRAME_DIRECTION_CONFLICT", result["reason_codes"])
+        self.assertIn("FIVE_MINUTE_TRIGGER_CONFLICT", result["reason_codes"])
 
     def test_unconfirmed_bar_returns_wait(self):
         payload = valid_payload()
