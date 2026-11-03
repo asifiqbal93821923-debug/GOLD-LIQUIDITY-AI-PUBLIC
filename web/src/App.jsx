@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, ColorType } from 'lightweight-charts';
-import { Activity, AlertTriangle, BarChart3, CandlestickChart, Clock3, Layers3, Radio, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, Bell, BookOpen, CandlestickChart, Clock3, Layers3, Radio, Save, Settings2, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
 
 const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
 const labels={ '3m':'৩ মিনিট','5m':'৫ মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
@@ -201,8 +201,16 @@ export default function App(){
   const [costs,setCosts]=useState({point_size:0.01,spread_points:20,slippage_points:5,commission_points_per_side:0});
   const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
-  const [phase2Status,setPhase2Status]=useState(null);
-  const [phase2Busy,setPhase2Busy]=useState(false);
+  const [riskSettings,setRiskSettings]=useState({account_balance:null,contract_size:null,risk_percent:0.5,max_daily_loss_percent:2,max_trades_per_day:3,max_open_trades:1,cooldown_minutes:60,min_reward_risk:1.0,max_spread_points:null});
+  const [riskSaving,setRiskSaving]=useState(false);
+  const [journalEntries,setJournalEntries]=useState([]);
+  const [signalEvents,setSignalEvents]=useState([]);
+  const [journalLots,setJournalLots]=useState(0.01);
+  const [closingTrade,setClosingTrade]=useState(null);
+  const [closeValues,setCloseValues]=useState({exit_price:'',pnl_money:''});
+  const [notificationPermission,setNotificationPermission]=useState(typeof window!=='undefined'&&'Notification' in window?Notification.permission:'unsupported');
+  const seenSignalIds=useRef(new Set());
+  const firstAlertsLoad=useRef(false);
   const fileRef=useRef(null);
 
   const loadCandles=useCallback(async (frame=tf)=>{
@@ -239,29 +247,39 @@ export default function App(){
       loadCandles(tf);
       fetch(apiUrl('/api/config/status')).then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
       fetch(apiUrl('/api/market/quote')).then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
+      refreshPhase3Records(true);
     },30000);
     return ()=>window.clearInterval(timer);
-  },[tf,loadCandles]);
+  },[tf,loadCandles,refreshPhase3Records]);
 
-  const refreshPhase2Status=useCallback(async()=>{
-    setPhase2Busy(true);
+  const refreshPhase3Records=useCallback(async(notifyNew=false)=>{
     try{
-      const frames=await Promise.all(['4h','1h','15m'].map(async timeframe=>{
-        const res=await fetch(apiUrl('/api/market/candles?timeframe='+timeframe+'&limit=5000'));
-        const data=await res.json();
-        if(!res.ok) throw new Error(data.detail||('Could not read '+timeframe+' history'));
-        return {timeframe,count:Number(data.count??(data.data||[]).length),live:data.live===true,
-          source:data.source||data.data_kind||'historical_import'};
-      }));
-      let quote={status:'not_available',acceptable:false,message:'No broker quote received'};
-      try{const res=await fetch(apiUrl('/api/market/quote'));if(res.ok)quote=await res.json();}catch(_){}
-      setPhase2Status({frames,quote,checkedAt:new Date().toISOString()});
-    }catch(error){
-      setPhase2Status({error:error.message,checkedAt:new Date().toISOString()});
-    }finally{setPhase2Busy(false);}
+      const [riskRes,journalRes,alertsRes]=await Promise.all([
+        fetch(apiUrl('/api/risk/settings')),
+        fetch(apiUrl('/api/journal?limit=30')),
+        fetch(apiUrl('/api/alerts?limit=30'))
+      ]);
+      if(riskRes.ok){const risk=await riskRes.json();if(risk.settings)setRiskSettings(risk.settings);}
+      if(journalRes.ok){const journal=await journalRes.json();setJournalEntries(journal.entries||[]);}
+      if(alertsRes.ok){
+        const alerts=await alertsRes.json();
+        const events=alerts.events||[];
+        if(!firstAlertsLoad.current){
+          events.forEach(event=>seenSignalIds.current.add(event.id));
+          firstAlertsLoad.current=true;
+        }else if(notifyNew&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
+          events.filter(event=>!seenSignalIds.current.has(event.id)).forEach(event=>{
+            seenSignalIds.current.add(event.id);
+            try{new Notification('GOLD TERMINAL · '+event.direction,{body:'XAUUSD '+event.direction+' · '+Number(event.price||0).toFixed(2)+' · 1H confirmed signal'});}catch(_){}
+          });
+        }
+        events.forEach(event=>seenSignalIds.current.add(event.id));
+        setSignalEvents(events);
+      }
+    }catch(_){}
   },[]);
 
-  useEffect(()=>{refreshPhase2Status();},[refreshPhase2Status]);
+  useEffect(()=>{refreshPhase3Records(false);},[refreshPhase3Records]);
 
   const importFile=async file=>{
     if(!file)return;
@@ -274,7 +292,7 @@ export default function App(){
       if(!res.ok) throw new Error(result.detail||result.message||'Import failed');
       setMessage('সফল: '+result.stored+'টি '+tf.toUpperCase()+' Candle সংরক্ষণ হয়েছে।');
       await loadCandles(tf);
-      refreshPhase2Status();
+      refreshPhase3Records(false);
     }catch(e){setMessage('Import Error: '+e.message);}
     finally{setImporting(false);if(fileRef.current)fileRef.current.value='';}
   };
@@ -290,7 +308,7 @@ export default function App(){
       const quoteRes=await fetch(apiUrl('/api/market/quote'));const quote=await quoteRes.json();setQuoteInfo(quote);
       const res=await fetch(apiUrl('/api/analysis/gold-report'),{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({timeframes:frames,data_fresh:allFresh,spread_acceptable:quote.acceptable===true})});
-      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Report failed');setReport(data);
+      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Report failed');setReport(data);await refreshPhase3Records(true);
     }catch(e){setMessage('Analysis Error: '+e.message);}
   };
 
@@ -328,6 +346,53 @@ export default function App(){
 
   const decision=report?.decision||{};
   const plan=decision.trade_plan;
+
+  const saveRiskProfile=async()=>{
+    setRiskSaving(true);
+    try{
+      const res=await fetch(apiUrl('/api/risk/settings'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(riskSettings)});
+      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Risk settings save failed');
+      setRiskSettings(data.settings);setMessage('Risk profile নিরাপদে সংরক্ষণ হয়েছে।');
+    }catch(error){setMessage('Risk settings: '+error.message);}
+    finally{setRiskSaving(false);}
+  };
+
+  const enableNotifications=async()=>{
+    if(typeof Notification==='undefined'){setNotificationPermission('unsupported');return;}
+    try{const permission=await Notification.requestPermission();setNotificationPermission(permission);}
+    catch(_){setNotificationPermission('denied');}
+  };
+
+  const addCurrentPlanToJournal=async()=>{
+    if(!plan||!['BUY','SELL'].includes(decision.decision)){setMessage('Journal-এ যোগ করার মতো confirmed trade plan নেই।');return;}
+    const entryPrice=(Number(plan.entry?.[0])+Number(plan.entry?.[1]))/2;
+    try{
+      const res=await fetch(apiUrl('/api/journal'),{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({direction:decision.decision,entry_price:entryPrice,stop_loss:Number(plan.stop_loss),
+          target_price:Number(plan.targets?.[0]),lots:Number(journalLots),notes:'Gold Terminal 1H confirmed analysis · manual journal entry'})});
+      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Journal entry failed');
+      setMessage('Trade Journal-এ নতুন entry সংরক্ষিত হয়েছে।');await refreshPhase3Records(false);
+    }catch(error){setMessage('Journal: '+error.message);}
+  };
+
+  const closeJournalTrade=async()=>{
+    if(!closingTrade)return;
+    try{
+      const res=await fetch(apiUrl('/api/journal/'+encodeURIComponent(closingTrade.id)+'/close'),{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({exit_price:Number(closeValues.exit_price),pnl_money:Number(closeValues.pnl_money)})});
+      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Could not close journal trade');
+      setClosingTrade(null);setCloseValues({exit_price:'',pnl_money:''});setMessage('Trade Journal entry closed and saved.');
+      await refreshPhase3Records(false);
+    }catch(error){setMessage('Journal close: '+error.message);}
+  };
+
+  useEffect(()=>{
+    if(!config?.live_data)return;
+    runReport();
+    const timer=window.setInterval(()=>runReport(),60000);
+    return ()=>window.clearInterval(timer);
+  },[config?.live_data]);
+
   return <main className="shell">
     <header className="topbar"><div className="brand"><div className="brand-mark"><BarChart3 size={21}/></div><div><b>PROJECT INDICATOR APP</b><small>GOLD MARKET INTELLIGENCE</small></div></div>
       <div className="top-status"><span className={'api-dot '+api}/><span>API {api.toUpperCase()}</span><span className="divider-v"/><span className="mode-label">1H PRIMARY TERMINAL</span></div></header>
@@ -341,56 +406,6 @@ export default function App(){
       <article className="card metric"><div className="metric-top"><span>4H MACRO</span><Waves size={17}/></div><b>CONTEXT FILTER</b><small>Higher timeframe confirmation</small></article>
       <article className="card metric"><div className="metric-top"><span>15M SETUP</span><Layers3 size={17}/></div><b>CONFIRMATION</b><small>Structure alignment required</small></article>
       <article className="card metric"><div className="metric-top"><span>5M ENTRY</span><Target size={17}/></div><b>OPTIONAL</b><small>Never owns trade direction</small></article>
-    </section>
-
-    <section className="card phase2-card">
-      <div className="section-head">
-        <div><span className="eyebrow">PHASE 2 · EVIDENCE & ACCEPTANCE</span><h2>Research Completion Tracker</h2></div>
-        <button className="action-btn secondary" onClick={refreshPhase2Status} disabled={phase2Busy}>
-          <RefreshCw size={13}/> {phase2Busy?'Checking…':'Refresh status'}
-        </button>
-      </div>
-      <div className="phase2-banner">
-        <span className="phase2-status-pill">NOT ACCEPTED</span>
-        <div><b>Code readiness is not the same as empirical validation.</b>
-          <small>অ্যাপের research engine-গুলো প্রস্তুত থাকতে পারে, কিন্তু আসল provider data, Pine reference এবং broker evidence ছাড়া Phase 2 PASS দেখানো হবে না।</small>
-        </div>
-      </div>
-      {phase2Status?.error&&<div className="phase2-error">Status read failed: {phase2Status.error}</div>}
-      <div className="phase2-grid">
-        <article className="phase2-item">
-          <div><b>P2.1 · Historical data</b><span className="phase2-tag pending">AUDIT PENDING</span></div>
-          <p>Stored candles এখন API থেকে গণনা করা হচ্ছে। একই provider/ticker, overlapping date range, closed-bar, gaps ও duplicates আলাদা করে যাচাই না হওয়া পর্যন্ত PASS নয়।</p>
-          <div className="phase2-counts">{(phase2Status?.frames||[]).map(x=><span key={x.timeframe}>{x.timeframe.toUpperCase()} <strong>{x.count.toLocaleString()}</strong> / {({ '4h':250,'1h':1000,'15m':4000 }[x.timeframe]).toLocaleString()}</span>)}</div>
-        </article>
-        <article className="phase2-item">
-          <div><b>P2.2 · Pine parity</b><span className="phase2-tag blocked">REFERENCE MISSING</span></div>
-          <p>Comparator ও metadata guard আছে। Alpha Pine source, exact Inputs, 1H confirmed-bar export এবং per-candle comparison report ছাড়া parity verified নয়।</p>
-        </article>
-        <article className="phase2-item">
-          <div><b>P2.3 · Calibration</b><span className="phase2-tag pending">DATA GATED</span></div>
-          <p>Optimizer ও Entry/SL/TP calibration runner আছে। Approved historical sample এবং non-zero maximum-spread cap দিয়ে চালানো ফল এখনও প্রয়োজন।</p>
-        </article>
-        <article className="phase2-item">
-          <div><b>P2.4 · Walk-forward / OOS</b><span className="phase2-tag pending">DATA GATED</span></div>
-          <p>Rolling multi-fold ও sealed holdout runner আছে। Validated same-feed dataset-এ চার fold এবং untouched holdout report এখনও নেই।</p>
-        </article>
-        <article className="phase2-item">
-          <div><b>P2.5 · Execution costs</b><span className="phase2-tag pending">BROKER PROOF PENDING</span></div>
-          <p>Spread/slippage/commission scenarios এবং fail-closed spread gate আছে। XM360 contract size, point value, commission schedule ও observed Bid/Ask/slippage evidence যাচাই বাকি।</p>
-          <small className="phase2-detail">Current quote: {phase2Status?.quote?.fresh?'Fresh broker quote':'No verified fresh broker quote'} · Spread: {phase2Status?.quote?.spread_points??'—'} points · Max cap: {phase2Status?.quote?.max_spread_points??'not configured'}</small>
-        </article>
-        <article className="phase2-item">
-          <div><b>P2.6 · Paper forward</b><span className="phase2-tag pending">LIVE PERIOD PENDING</span></div>
-          <p>Offline closed-candle paper ledger আছে। Continuous feed/receiver, durable ledger এবং pre-declared forward observation period এখনও সম্পন্ন হয়নি।</p>
-        </article>
-      </div>
-      <div className="phase2-links">
-        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/actions/workflows/download-xauusd-history.yml" target="_blank" rel="noreferrer">Open independent Dukascopy history workflow ↗</a>
-        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/actions/workflows/phase2-research.yml" target="_blank" rel="noreferrer">Open Phase 2 same-feed research workflow ↗</a>
-        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/blob/main/docs/PHASE_2_RESEARCH_RUNBOOK.md" target="_blank" rel="noreferrer">Evidence & runbook ↗</a>
-      </div>
-      <small className="phase2-foot">Independent Dukascopy BID data may be used for clearly labelled research only; it does not establish TradingView feed parity or XM360 execution costs. Checked: {phase2Status?.checkedAt?new Date(phase2Status.checkedAt).toLocaleString():'not yet checked'}.</small>
     </section>
 
     <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)} report={report} dataKind={dataKind}/>
@@ -408,11 +423,88 @@ export default function App(){
           <div><b>Primary: 1H · 4H Macro · 15M Setup · 5M Optional</b><p>{decision.note||report.disclaimer}</p></div>
           <div className="reason-list"><b>Decision Reasons</b>{(decision.reason_codes||[]).map(x=><span key={x}>{x}</span>)}</div>
           {plan&&<div className="risk-grid"><span>Entry {plan.entry?.join(' – ')}</span><span>SL {plan.stop_loss}</span>{(plan.targets||[]).map((x,i)=><span key={i}>TP{i+1} {x}</span>)}</div>}
+          {report.risk_management&&<div className="phase3-gate">
+            <b><ShieldCheck size={13}/> Risk Gate · {report.risk_management.status?.toUpperCase()}</b>
+            {report.risk_management.reward_risk_to_tp1!=null&&<span>TP1 R:R {report.risk_management.reward_risk_to_tp1}</span>}
+            {report.risk_management.position_size&&<span>Estimated size {report.risk_management.position_size.estimated_lots} lots</span>}
+            {(report.risk_management.blocking_reasons||[]).map(reason=><span className="risk-block" key={reason}>{reason}</span>)}
+            {(report.risk_management.warnings||[]).map(reason=><small key={reason}>{reason.replaceAll('_',' ')}</small>)}
+          </div>}
           <small>{report.disclaimer}</small>
         </div>}
     </section>
 
 
+
+    <section className="card phase3-card">
+      <div className="section-head"><div><span className="eyebrow">TRADE PROTECTION</span><h2>Risk Management & Position Sizing</h2></div><ShieldCheck size={19}/></div>
+      <div className="phase3-metrics">
+        <div><small>OPEN TRADES</small><b>{journalEntries.filter(x=>x.status==='OPEN').length}</b></div>
+        <div><small>DAILY TRADE COUNT</small><b>{journalEntries.filter(x=>(x.opened_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).length}</b></div>
+        <div><small>REALIZED PNL TODAY (UTC)</small><b>{journalEntries.filter(x=>(x.closed_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).reduce((sum,x)=>sum+Number(x.pnl_money||0),0).toFixed(2)}</b></div>
+        <div><small>LIVE SPREAD</small><b>{quoteInfo?.fresh?Number(quoteInfo.spread_points).toFixed(1)+' pts':'NOT LIVE'}</b></div>
+      </div>
+      {report?.risk_management&&<div className={'phase3-risk-state '+(report.risk_management.status==='approved'?'approved':'blocked')}>
+        <b>{report.risk_management.status==='approved'?'Risk checks passed for this alert':'Risk checks: '+(report.risk_management.status||'not evaluated').toUpperCase()}</b>
+        <span>{(report.risk_management.blocking_reasons||[]).length?(report.risk_management.blocking_reasons||[]).join(' · '):'Spread, reward/risk, daily limits and cooldown checked.'}</span>
+        {report.risk_management.position_size&&<span>Risk budget: {report.risk_management.position_size.risk_cash} · estimated size {report.risk_management.position_size.estimated_lots} lots</span>}
+      </div>}
+      <details className="risk-settings">
+        <summary><Settings2 size={14}/> Risk profile settings <small>Configure account and broker contract details</small></summary>
+        <div className="risk-form">
+          <label>Account balance<input type="number" min="0" step="100" placeholder="e.g. 10000" value={riskSettings.account_balance??''} onChange={e=>setRiskSettings(v=>({...v,account_balance:e.target.value===''?null:Number(e.target.value)}))}/></label>
+          <label>Contract size (units / lot)<input type="number" min="0" step="1" placeholder="Broker specification" value={riskSettings.contract_size??''} onChange={e=>setRiskSettings(v=>({...v,contract_size:e.target.value===''?null:Number(e.target.value)}))}/></label>
+          <label>Risk per trade (%)<input type="number" min="0.01" max="5" step="0.05" value={riskSettings.risk_percent} onChange={e=>setRiskSettings(v=>({...v,risk_percent:Number(e.target.value)}))}/></label>
+          <label>Max daily loss (%)<input type="number" min="0.1" max="20" step="0.1" value={riskSettings.max_daily_loss_percent} onChange={e=>setRiskSettings(v=>({...v,max_daily_loss_percent:Number(e.target.value)}))}/></label>
+          <label>Max trades / day<input type="number" min="1" max="50" step="1" value={riskSettings.max_trades_per_day} onChange={e=>setRiskSettings(v=>({...v,max_trades_per_day:Number(e.target.value)}))}/></label>
+          <label>Max open trades<input type="number" min="1" max="20" step="1" value={riskSettings.max_open_trades} onChange={e=>setRiskSettings(v=>({...v,max_open_trades:Number(e.target.value)}))}/></label>
+          <label>Cooldown (minutes)<input type="number" min="0" max="1440" step="5" value={riskSettings.cooldown_minutes} onChange={e=>setRiskSettings(v=>({...v,cooldown_minutes:Number(e.target.value)}))}/></label>
+          <label>Minimum TP1 R:R<input type="number" min="0.1" max="10" step="0.1" value={riskSettings.min_reward_risk} onChange={e=>setRiskSettings(v=>({...v,min_reward_risk:Number(e.target.value)}))}/></label>
+          <label>Extra max spread (points)<input type="number" min="0" step="1" placeholder="Optional stricter cap" value={riskSettings.max_spread_points??''} onChange={e=>setRiskSettings(v=>({...v,max_spread_points:e.target.value===''?null:Number(e.target.value)}))}/></label>
+        </div>
+        <div className="phase3-actions"><button className="action-btn" onClick={saveRiskProfile} disabled={riskSaving}><Save size={13}/>{riskSaving?'Saving…':'Save risk profile'}</button><small>Broker-এর contract size ও point value যাচাই করে বসাও। খালি রাখলে lot-size estimate দেখানো হবে না।</small></div>
+      </details>
+    </section>
+
+    <section className="phase3-columns">
+      <article className="card phase3-card">
+        <div className="section-head"><div><span className="eyebrow">CONFIRMED SIGNALS</span><h2>Alerts</h2></div>
+          <button className="action-btn secondary" onClick={enableNotifications}><Bell size={13}/> {notificationPermission==='granted'?'Notifications ON':notificationPermission==='denied'?'Notifications blocked':'Enable notifications'}</button>
+        </div>
+        <p className="phase3-note">নতুন 1H BUY/SELL confirmation হলে একবার alert তৈরি হয়; একই direction বারবার এলে duplicate alert হয় না।</p>
+        <div className="phase3-list">
+          {signalEvents.slice(0,8).map(event=><div className="phase3-row" key={event.id}>
+            <b className={event.direction==='BUY'?'positive':'negative'}>{event.direction} · XAUUSD</b>
+            <span>{Number(event.price||0).toFixed(2)} · {new Date(Number(event.candle_time)*1000).toLocaleString()}</span>
+            <small>Entry {event.entry_low??'—'} – {event.entry_high??'—'} · SL {event.stop_loss??'—'} · TP1 {event.target1??'—'}</small>
+          </div>)}
+          {!signalEvents.length&&<div className="phase3-empty">এখনও কোনো confirmed live signal নেই। Fresh MT5 candles, valid 1H setup ও acceptable spread দরকার।</div>}
+        </div>
+      </article>
+      <article className="card phase3-card">
+        <div className="section-head"><div><span className="eyebrow">MANUAL RECORDS · NO BROKER ORDERS</span><h2>Trade Journal</h2></div><BookOpen size={19}/></div>
+        <div className="journal-create">
+          <label>Lots<input type="number" min="0.001" step="0.001" value={journalLots} onChange={e=>setJournalLots(Number(e.target.value))}/></label>
+          <button className="action-btn" onClick={addCurrentPlanToJournal} disabled={!plan||!['BUY','SELL'].includes(decision.decision)}>Log current 1H plan</button>
+        </div>
+        {closingTrade&&<div className="journal-close">
+          <b>Close {closingTrade.direction} trade</b>
+          <input type="number" min="0.00001" placeholder="Exit price" value={closeValues.exit_price} onChange={e=>setCloseValues(v=>({...v,exit_price:e.target.value}))}/>
+          <input type="number" step="0.01" placeholder="Realized PnL (+/-)" value={closeValues.pnl_money} onChange={e=>setCloseValues(v=>({...v,pnl_money:e.target.value}))}/>
+          <button className="action-btn" onClick={closeJournalTrade} disabled={!closeValues.exit_price||closeValues.pnl_money===''}>Save close</button>
+          <button className="action-btn secondary" onClick={()=>setClosingTrade(null)}>Cancel</button>
+        </div>}
+        <div className="phase3-list">
+          {journalEntries.slice(0,8).map(entry=><div className="phase3-row" key={entry.id}>
+            <div className="journal-row-head"><b className={entry.direction==='BUY'?'positive':'negative'}>{entry.direction}</b><span>{entry.status} · {Number(entry.lots).toFixed(3)} lots</span></div>
+            <span>Entry {Number(entry.entry_price).toFixed(2)} · SL {Number(entry.stop_loss).toFixed(2)} · TP {Number(entry.target_price).toFixed(2)}</span>
+            {entry.status==='CLOSED'&&<small>Exit {Number(entry.exit_price).toFixed(2)} · PnL {Number(entry.pnl_money).toFixed(2)}</small>}
+            {entry.status==='OPEN'&&<button className="text-action" onClick={()=>{setClosingTrade(entry);setCloseValues({exit_price:'',pnl_money:''});}}>Close trade</button>}
+          </div>)}
+          {!journalEntries.length&&<div className="phase3-empty">কোনো journal trade নেই। Confirmed 1H plan পেলে এখানে manually log করতে পারবে।</div>}
+        </div>
+      </article>
+    </section>
 
     <section className="card report-card">
       <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><div className="backtest-actions"><button className="action-btn" onClick={runBacktest}>Run 1H Alpha</button><button className="action-btn secondary" onClick={runMtfBacktest} disabled={mtfBusy}>{mtfBusy?"Replay…":"Run Full MTF Replay"}</button></div></div>
@@ -448,6 +540,6 @@ export default function App(){
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
         <div className="empty-state"><Radio size={22}/><b>{config?.live_data?'MT5 Bridge Connected':'Live feed not connected'}</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Backtest-এ spread, commission ও slippage assumptions দেওয়া যায়; broker-এর আসল fee schedule এখনও যাচাই করা হয়নি.</span></div></article>
     </section>
-    <footer><span><Clock3 size={13}/> BUILD 0.4.0 · 1H PRIMARY</span><span>Closed-candle analysis only · No broker orders are placed</span></footer>
+    <footer><span><Clock3 size={13}/> BUILD 0.5.0 · RISK & ALERTS · 1H PRIMARY</span><span>Closed-candle analysis only · No broker orders are placed</span></footer>
   </main>;
 }
