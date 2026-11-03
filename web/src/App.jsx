@@ -2,25 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, ColorType } from 'lightweight-charts';
 import { Activity, AlertTriangle, BarChart3, CandlestickChart, Clock3, Layers3, Radio, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
 
-const timeframes=['5m','15m','30m','1h','4h','1D'];
+const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
 const labels={ '5m':'5 মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
 const API='';
 
 function parseCsv(text){
-  const lines=text.replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
+  const lines=text.replace(/^\\uFEFF/,'').trim().split(/\\r?\\n/).filter(Boolean);
   if(lines.length<2) throw new Error('CSV-তে Header ও অন্তত একটি Candle থাকতে হবে।');
-  const headers=lines[0].split(',').map(x=>x.trim().toLowerCase());
+  const first=lines[0];
+  const delimiter=[';',',','\\t'].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
+  const headers=first.split(delimiter).map(x=>x.trim().replace(/^"|"$/g,'').toLowerCase());
   const idx=(...names)=>headers.findIndex(x=>names.includes(x));
-  const ti=idx('time','timestamp','date','datetime');
-  const oi=idx('open','o'), hi=idx('high','h'), li=idx('low','l'), ci=idx('close','c'), vi=idx('volume','vol','tick_volume');
-  if([ti,oi,hi,li,ci].some(x=>x<0)) throw new Error('CSV Header দরকার: time,open,high,low,close (volume ঐচ্ছিক)।');
+  const ti=idx('time','timestamp','datetime'), di=idx('date');
+  const oi=idx('open','o'), hi=idx('high','h'), li=idx('low','l'), ci=idx('close','c'), vi=idx('volume','vol','tick_volume','tick volume');
+  if([oi,hi,li,ci].some(x=>x<0)||(ti<0&&di<0)) throw new Error('CSV Header দরকার: time বা date, open, high, low, close (volume ঐচ্ছিক)।');
   return lines.slice(1).map((line,n)=>{
-    const a=line.split(',').map(x=>x.trim());
-    const time=a[ti];
-    const numericTime=Number(time);
-    const parsedTime=time && Number.isFinite(numericTime) ? numericTime : Date.parse(time)/1000;
-    const candle={time:parsedTime, symbol:'XAUUSD',open:Number(a[oi]),high:Number(a[hi]),low:Number(a[li]),close:Number(a[ci])};
-    if(vi>=0 && a[vi]!=='' && Number.isFinite(Number(a[vi]))) candle.volume=Number(a[vi]);
+    const a=line.split(delimiter).map(x=>x.trim().replace(/^"|"$/g,''));
+    const rawTime=(di>=0&&ti>=0)?(a[di]+' '+a[ti]):a[ti>=0?ti:di];
+    const numericTime=Number(rawTime);
+    const parsedTime=rawTime&&Number.isFinite(numericTime)?numericTime:Date.parse(rawTime.replaceAll('.','-'))/1000;
+    const candle={time:parsedTime,symbol:'XAUUSD',open:Number(a[oi]),high:Number(a[hi]),low:Number(a[li]),close:Number(a[ci])};
+    if(vi>=0&&a[vi]!==''&&Number.isFinite(Number(a[vi]))) candle.volume=Number(a[vi]);
     if(!Number.isFinite(candle.time)||![candle.open,candle.high,candle.low,candle.close].every(Number.isFinite)) throw new Error('CSV Row '+(n+2)+'-এ ভুল মান আছে।');
     return candle;
   });
