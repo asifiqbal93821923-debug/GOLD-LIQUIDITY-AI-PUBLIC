@@ -15,7 +15,7 @@
 - [ ] Receive the remaining LuxAlgo source and complete source audit.
 - [x] Receive complete Wick Sequence Breakout (WSB) Pine v6 source and document logic, license and validation requirements.
 - [x] Receive complete LuxAlgo AI Channels (Clustering) Pine v5 source and document algorithm, license and validation requirements.
-- [ ] Intake further user indicators under docs/INDICATOR_INTEGRATION_STANDARD.md.
+- [x] Create unified engine feature-selection and architecture blueprint (docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
 - [ ] Create isolated modules, attribution/license records, settings and parity fixtures for accepted features.
 - [ ] Build a confluence layer that prevents correlated indicators from being double-counted.
 
@@ -43,4 +43,5 @@
 - [x] FastAPI backend foundation.
 - [x] Alpha Signal Engine initial port, endpoint and basic tests.
 - [x] CORS now permits the POST analysis route.
+- [x] Four engine families reviewed and documented; unified feature-selection blueprint committed.
 - [ ] No production market feed, parity certification, complete chart analysis, trade planner or Android package yet.
