@@ -42,6 +42,22 @@ def analyze_unified_decision(payload: dict[str,Any]) -> dict[str,Any]:
             reasons.append("ONE_HOUR_STRUCTURE_NOT_CONFIRMED")
         elif primary and d and d!=primary:
             reasons.append("ONE_HOUR_STRUCTURE_CONFLICT")
+    # AI Channels are a context filter, never an independent directional vote.
+    channel=payload.get("ai_channel_context")
+    if channel is not None and primary:
+        for tf in ("4h","1h"):
+            ctx=channel.get(tf,{}) if isinstance(channel,dict) else {}
+            if ctx.get("status")=="ok":
+                state=ctx.get("channel_state")
+                if state in ("bullish","bearish") and DIRECTION_MAP.get(state)!=primary:
+                    reasons.append(f"{tf.upper()}_CHANNEL_CONTEXT_CONFLICT")
+    # Ambiguous double-sided sweep means the OHLC bar cannot establish direction.
+    liquidity=payload.get("liquidity_context")
+    if isinstance(liquidity,dict):
+        for tf,item in liquidity.items():
+            sweep=item.get("liquidity_sweep",{}) if isinstance(item,dict) else {}
+            if sweep.get("ambiguous_both_sides") is True:
+                reasons.append(f"{str(tf).upper()}_AMBIGUOUS_LIQUIDITY_SWEEP")
     spread=payload.get("spread")
     if not isinstance(spread,dict) or spread.get("acceptable") is not True:
         reasons.append("SPREAD_NOT_ACCEPTABLE")
