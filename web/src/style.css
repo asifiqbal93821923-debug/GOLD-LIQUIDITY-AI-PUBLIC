@@ -83,3 +83,21 @@
  .phase3-actions{align-items:flex-start;flex-direction:column}
  .risk-settings summary{flex-wrap:wrap}.risk-settings summary small{width:100%;margin-left:22px}
 }
+
+.liquidity-content{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.liquidity-score{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #29384b;border-radius:7px;background:#0b131e}
+.liquidity-score span{font-size:10px;color:#9caec2}.liquidity-score b{margin-left:auto;font:600 16px 'DM Mono',monospace;color:#d5b47c}
+.liquidity-score small{font:8px 'DM Mono',monospace;color:#7e91a7}
+.liquidity-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.liquidity-metrics span{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #29384b;border-radius:6px;font:8px 'DM Mono',monospace;color:#8293a8;min-width:0}
+.liquidity-metrics b{font-size:11px;color:#dce5ef;overflow-wrap:anywhere}
+.liquidity-sweeps{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.liquidity-sweeps span{padding:8px;border:1px solid #29384b;border-radius:6px;font:9px 'DM Mono',monospace;color:#8899ae}
+.liquidity-sweeps .sweep-hit{border-color:#9b7748;color:#e6bf83;background:#2b2117}
+.feed-health-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:0 12px 14px}
+.feed-health-list>div{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #29384b;border-radius:6px;background:#0b131e;min-width:0}
+.feed-health-list b{font:9px 'DM Mono',monospace;color:#d9b77e}
+.feed-health-list span{font:8px 'DM Mono',monospace;color:#ef9ca5}
+.feed-health-list span.healthy{color:#7bd9b6}
+.feed-health-list small{font:8px 'DM Mono',monospace;color:#7e91a7;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:760px){.liquidity-score{flex-wrap:wrap}.liquidity-score b{margin-left:0}.liquidity-score small{margin-left:auto}.feed-health-list{grid-template-columns:1fr 1fr}}
