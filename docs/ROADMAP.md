@@ -1,10 +1,13 @@
 # Development Roadmap
 
 ## Phase 1 — Market data foundation
-- [x] Implement authenticated MT5 Expert Advisor bridge endpoint, EA source and setup guide.\n- [ ] Configure the user's server token, install EA in MT5 desktop and verify fresh broker candles.\n- [ ] Confirm the execution reference feed and broker symbol/session semantics.
+- [x] Implement authenticated MT5 Expert Advisor bridge endpoint, EA source and setup guide.
+- [ ] Configure the user's server token, install EA in MT5 desktop and verify fresh broker candles.
+- [ ] Confirm the execution reference feed and broker symbol/session semantics.
 - [x] Add a persistent SQLite historical-candle store and validated JSON import/retrieval API; keep secrets server-side. (Historical import only; provider adapter/live feed remains pending)
 - [ ] Validate XAUUSD symbol mapping, timezone, session gaps, candle boundaries and volume semantics.
-- [x] Load user-imported historical candles through API without fabricating data.\n- [ ] Connect a licensed/provider historical source and stream live updates.
+- [x] Load user-imported historical candles through API without fabricating data.
+- [ ] Connect a licensed/provider historical source and stream live updates.
 
 ## Phase 2 — Pine parity and engine registry
 - [x] Receive Alpha Signal Engine Pro source; create initial Python port, API contract and basic tests.
@@ -35,15 +38,18 @@
 ## Phase 4 — Trade planning and validation
 - [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
 - [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
-- [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.\n- [ ] Add commission, slippage and session sensitivity to reports.
+- [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.
+- [ ] Add commission, slippage and session sensitivity to reports.
 - [ ] Run historical replay, backtests, walk-forward tests and anti-repainting checks.
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
 
 ## Phase 5 — Web and Android delivery
-- [x] Add MT5 EA-to-API candle bridge source and authenticated ingestion endpoint.\n- [ ] Activate and verify the bridge with the user's MT5 terminal and server token; no live data is connected until this setup is completed.
+- [x] Add MT5 EA-to-API candle bridge source and authenticated ingestion endpoint.
+- [ ] Activate and verify the bridge with the user's MT5 terminal and server token; no live data is connected until this setup is completed.
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
 - [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
-- [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.\n- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
+- [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.
+- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
 - [x] Add PWA manifest, mobile metadata, icon, service-worker registration and offline app-shell cache (market data remains online; device install not yet manually verified).
 - [ ] Android packaging only after web core, feed and validation are stable.
 - [ ] Deployment, monitoring, secret management and operational documentation.
