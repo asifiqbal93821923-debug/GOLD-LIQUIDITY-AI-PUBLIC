@@ -1,6 +1,11 @@
 name: Free XAU sampled data collector
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/collect_free_xau.py"
+      - ".github/workflows/free-xau-data.yml"
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
