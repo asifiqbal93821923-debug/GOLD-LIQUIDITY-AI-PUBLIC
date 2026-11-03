@@ -86,7 +86,9 @@ export default function App(){
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [report,setReport]=useState(null);
-  const [quoteInfo,setQuoteInfo]=useState(null);\n  const [backtest,setBacktest]=useState(null);\n  const [costs,setCosts]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0});
+  const [quoteInfo,setQuoteInfo]=useState(null);
+  const [backtest,setBacktest]=useState(null);
+  const [costs,setCosts]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0});
   const [importing,setImporting]=useState(false);
   const fileRef=useRef(null);
 
