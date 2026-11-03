@@ -4,7 +4,7 @@ This tool searches a reproducible sample of up to 500 Alpha Signal Engine parame
 
 ## Method
 
-- Candidate grid: ATR period, band multiplier, ATR weight, price-move weight, slope threshold, volume filter, range filter and minimum BPS delta.
+- Inputs swept: all 21 exposed Alpha settings, including ATR/band/weight values, EMA smoothing, volatility fingerprint, stall/slope/volume/range/BPS filters, lookbacks, thresholds and breakout override. The first candidates are one-factor-at-a-time tests; remaining slots are deterministic multi-factor combinations.
 - Default request: 100 candidates. The seed is fixed by default, so the same input produces the same candidates.
 - Chronological split: 60% train, 20% validation, 20% sealed test.
 - Every train, validation and test partition must independently contain at least 50 closed candles in 4H, 1H and 15M. Bars that straddle a split boundary are excluded.
