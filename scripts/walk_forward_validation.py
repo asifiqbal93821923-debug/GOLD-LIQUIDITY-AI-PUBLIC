@@ -1,11 +1,6 @@
-"""Chronological walk-forward harness for exported MTF candle JSON.
-
-Input JSON: {"4h":[OHLC rows],"1h":[...],"15m":[...],"5m":[...]}.
-This evaluates a fixed configuration on train and later unseen test windows;
-it does not optimize parameters or claim parity.
-"""
+"""Chronological walk-forward harness for exported MTF candle JSON."""
 from __future__ import annotations
-import argparse,json
+import argparse,json,math
 from pathlib import Path
 from server.multitimeframe_backtest import run_gold_mtf_backtest
 from server.market_data import validate_candles
@@ -17,11 +12,15 @@ def metrics(report):
 def run_walk_forward(frames,train_fraction=0.70,costs=None,settings=None):
     if not 0.5<=train_fraction<=0.9: raise ValueError("train_fraction must be 0.50..0.90")
     normalized={tf:validate_candles(rows) for tf,rows in frames.items() if rows}
+    # Ensure both chronological partitions can independently meet the engine's
+    # 50 closed-bar minimum. The test partition must never be shorter than 50.
+    required=math.ceil(50/(1-train_fraction))
     for tf in ("4h","1h","15m"):
-        if tf not in normalized or len(normalized[tf])<120:
+        count=len(normalized.get(tf,[]))
+        if count<required:
             return {"status":"insufficient_history","timeframe":tf,
-              "required_minimum_for_walk_forward":120,"received":len(normalized.get(tf,[]))}
-    # Chronological boundary anchored to 1H bars; each TF is partitioned by timestamp.
+              "required_minimum_for_split":required,"received":count,
+              "reason":"Both train and unseen test windows need at least 50 closed bars."}
     h1=normalized["1h"]; cut_index=int(len(h1)*train_fraction)
     boundary=h1[cut_index]["time"]
     train={tf:[x for x in rows if x["time"]<boundary] for tf,rows in normalized.items()}
@@ -35,7 +34,7 @@ def run_walk_forward(frames,train_fraction=0.70,costs=None,settings=None):
       "train_status":train_report.get("status"),"out_of_sample_status":test_report.get("status"),
       "train_veto_counts":train_report.get("veto_counts"),
       "out_of_sample_veto_counts":test_report.get("veto_counts"),
-      "warning":"This is a fixed-parameter chronological holdout, not parameter optimization. Minimum 120 bars/timeframe is a floor, not a statistically sufficient sample. Costs must reflect the target broker."}
+      "warning":"Fixed-parameter chronological holdout, not parameter optimization. Minimum is a technical floor, not a statistically sufficient sample. Costs must match target broker."}
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--input",required=True); ap.add_argument("--output")
