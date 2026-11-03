@@ -94,7 +94,7 @@ bool SendQuote()
    long tick_epoch=(long)(tick.time_msc/1000);
    string body=StringFormat("{\"symbol\":\"XAUUSD\",\"time\":%I64d,\"bid\":%s,\"ask\":%s,\"point\":%s}",
       tick_epoch,DoubleToString(bid,digits),DoubleToString(ask,digits),DoubleToString(point,10));
-   string headers="Content-Type: application/json\\r\\nX-Bridge-Token: "+InpBridgeToken+"\\r\\n";
+   string headers="Content-Type: application/json\r\nX-Bridge-Token: "+InpBridgeToken+"\r\n";
    char post_data[],result[];
    StringToCharArray(body,post_data,0,WHOLE_ARRAY,CP_UTF8);
    if(ArraySize(post_data)>0) ArrayResize(post_data,ArraySize(post_data)-1);
