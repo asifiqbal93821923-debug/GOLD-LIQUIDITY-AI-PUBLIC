@@ -69,7 +69,39 @@ def load_csv(path: str, signal_column: str, numeric_columns: list[str]) -> dict[
 def load_meta(path: str | None) -> dict | None:
     if not path:
         return None
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return data
+
+
+def _metadata_issues(meta: dict | None, label: str) -> list[str]:
+    if not isinstance(meta, dict):
+        return [f"{label}: metadata must be a JSON object"]
+    required_text = ("script_title", "pine_version", "symbol", "provider",
+                     "timezone", "timeframe", "bar_timestamp", "bar_confirmation")
+    issues = [f"{label}: missing/blank {key}" for key in required_text
+              if not isinstance(meta.get(key), str) or not meta[key].strip()]
+    settings = meta.get("settings")
+    if not isinstance(settings, dict) or not settings:
+        issues.append(f"{label}: settings must be a non-empty JSON object")
+    return issues
+
+
+def compare_metadata(reference_meta, candidate_meta):
+    keys = ("script_title", "pine_version", "symbol", "provider", "timezone",
+            "timeframe", "bar_timestamp", "bar_confirmation", "settings")
+    differences = {}
+    for key in keys:
+        ref_value = reference_meta.get(key) if isinstance(reference_meta, dict) else None
+        cand_value = candidate_meta.get(key) if isinstance(candidate_meta, dict) else None
+        if ref_value != cand_value:
+            differences[key] = {"tradingview": ref_value, "python": cand_value}
+    issues = (_metadata_issues(reference_meta, "tradingview") +
+              _metadata_issues(candidate_meta, "python"))
+    return {"status": "PASS" if not differences and not issues else "FAIL",
+            "differences": differences, "validation_errors": issues,
+            "required_keys": list(keys)}
 
 
 def compare(reference, candidate, numeric_columns=(), tolerance_seconds=0, numeric_tolerance=1e-8):
@@ -105,7 +137,7 @@ def compare(reference, candidate, numeric_columns=(), tolerance_seconds=0, numer
             if err > numeric_tolerance:
                 numeric[col]["mismatches"] += 1
     signal_equal = len(common) > 0 and not signal_mismatches and not missing and not extra
-    numeric_equal = all(x["mismatches"] == 0 for x in numeric.values())
+    numeric_equal = all(x["mismatches"] == 0 and x["compared"] > 0 for x in numeric.values())
     return {
         "status": "PASS" if signal_equal and numeric_equal else "FAIL",
         "bars": {"tradingview": len(reference), "python": len(candidate), "common": len(common),
@@ -143,21 +175,20 @@ def main():
     ap.add_argument("--candidate", required=True, help="Python per-bar CSV")
     ap.add_argument("--signal-column", default="signal")
     ap.add_argument("--numeric-columns", default="")
-    ap.add_argument("--reference-meta")
-    ap.add_argument("--candidate-meta")
+    ap.add_argument("--reference-meta", required=True, help="Exact TradingView source/settings metadata JSON")
+    ap.add_argument("--candidate-meta", required=True, help="Matching Python source/settings metadata JSON")
     ap.add_argument("--numeric-tolerance", type=float, default=1e-8)
     ap.add_argument("--output")
     a = ap.parse_args()
+    if not math.isfinite(a.numeric_tolerance) or a.numeric_tolerance < 0:
+        raise SystemExit("--numeric-tolerance must be a finite, non-negative number.")
     cols = [x.strip() for x in a.numeric_columns.split(",") if x.strip()]
     ref = load_csv(a.reference, a.signal_column, cols)
     cand = load_csv(a.candidate, "signal", cols)
     report = compare(ref, cand, cols, numeric_tolerance=a.numeric_tolerance)
-    if bool(a.reference_meta) != bool(a.candidate_meta):
-        raise SystemExit("Provide both --reference-meta and --candidate-meta, or neither.")
-    if a.reference_meta:
-        report["metadata"] = compare_metadata(load_meta(a.reference_meta), load_meta(a.candidate_meta))
-        if report["metadata"]["status"] != "PASS":
-            report["status"] = "FAIL"
+    report["metadata"] = compare_metadata(load_meta(a.reference_meta), load_meta(a.candidate_meta))
+    if report["metadata"]["status"] != "PASS":
+        report["status"] = "FAIL"
     raw = json.dumps(report, indent=2)
     if a.output:
         Path(a.output).parent.mkdir(parents=True, exist_ok=True)
