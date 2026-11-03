@@ -11,7 +11,16 @@ def metrics(report):
 
 def run_walk_forward(frames,train_fraction=0.70,costs=None,settings=None):
     if not 0.5<=train_fraction<=0.9: raise ValueError("train_fraction must be 0.50..0.90")
-    normalized={tf:validate_candles(rows) for tf,rows in frames.items() if rows}
+    normalized = {}
+    for tf in ("4h", "1h", "15m", "5m"):
+        rows = frames.get(tf) or []
+        if rows:
+            normalized[tf] = validate_candles(rows)
+    provenance = frames.get("metadata", {}) if isinstance(frames.get("metadata"), dict) else {}
+    data_quality = frames.get("data_quality", {}) if isinstance(frames.get("data_quality"), dict) else {}
+    if data_quality.get("status") not in (None, "ready_for_60_20_20_validation"):
+        return {"status": "insufficient_history", "reason": "DATASET_QUALITY_GATE_FAILED",
+                "data_quality": data_quality}
     # Ensure both chronological partitions can independently meet the engine's
     # 50 closed-bar minimum. The test partition must never be shorter than 50.
     required=math.ceil(50/(1-train_fraction))
@@ -28,6 +37,7 @@ def run_walk_forward(frames,train_fraction=0.70,costs=None,settings=None):
     train_report=run_gold_mtf_backtest(train,costs=costs,settings=settings)
     test_report=run_gold_mtf_backtest(test,costs=costs,settings=settings)
     return {"status":"ok" if train_report.get("status")=="ok" and test_report.get("status")=="ok" else "blocked",
+      "feed_provenance": {"source": provenance.get("source"), "symbol": provenance.get("symbol")},
       "method":"chronological holdout; fixed parameters; no future bars passed across split",
       "train_fraction":train_fraction,"boundary_epoch":boundary,
       "train":metrics(train_report),"out_of_sample":metrics(test_report),
