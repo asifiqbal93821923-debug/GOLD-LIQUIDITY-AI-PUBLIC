@@ -54,5 +54,24 @@ class UnifiedDecisionTests(unittest.TestCase):
         result = analyze_unified_decision(payload)
         self.assertEqual(result["decision"], "SELL")
 
+    def test_opposing_ai_channel_context_blocks_trade(self):
+        payload = valid_payload()
+        payload["ai_channel_context"] = {
+            "4h": {"status": "ok", "channel_state": "bearish"},
+            "1h": {"status": "ok", "channel_state": "bullish"},
+        }
+        result = analyze_unified_decision(payload)
+        self.assertEqual(result["decision"], "WAIT")
+        self.assertIn("FOUR_H_CHANNEL_CONTEXT_CONFLICT", result["reason_codes"])
+
+    def test_ambiguous_liquidity_sweep_blocks_trade(self):
+        payload = valid_payload()
+        payload["liquidity_context"] = {
+            "5m": {"liquidity_sweep": {"ambiguous_both_sides": True}}
+        }
+        result = analyze_unified_decision(payload)
+        self.assertEqual(result["decision"], "WAIT")
+        self.assertIn("5M_AMBIGUOUS_LIQUIDITY_SWEEP", result["reason_codes"])
+
 if __name__ == "__main__":
     unittest.main()
