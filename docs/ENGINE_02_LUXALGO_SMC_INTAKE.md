@@ -1,76 +1,68 @@
-# Engine 02 — LuxAlgo Smart Money Concepts (Source Intake)
+# Engine 02 — LuxAlgo Smart Money Concepts (Complete Source Audit)
 
 ## Intake status
 - Indicator: Smart Money Concepts [LuxAlgo]
 - Original author: LuxAlgo
 - Pine version: v5
-- License header supplied by user: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
-- Source status: PARTIAL. The user has now supplied the complete visible input/settings section, custom type declarations, persistent state variables, arrays and color initialization. The pasted text still cuts off during variable declarations at the comment `alerts in current ba`; calculation/execution logic is not yet present. This remains an intake inventory only, not a verified port.
-- Required handling: preserve LuxAlgo attribution and license notice. Do not use commercially unless separate permission is obtained. Any derivative distributed from this source must comply with CC BY-NC-SA 4.0.
+- Supplied license: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0), https://creativecommons.org/licenses/by-nc-sa/4.0/
+- Source status: COMPLETE for the pasted indicator. The user supplied the full source through execution and alert conditions.
+- Audit status: logic reviewed at source level; not yet ported, compiled in Pine, or parity-tested against TradingView exports.
+- License gate: preserve attribution and license notice. CC BY-NC-SA is non-commercial; obtain separate permission before commercial use. Review share-alike obligations before distributing an adapted derivative.
 
-## Newly received source details
-The expanded source includes:
-- Structure constants and display modes: bullish/bearish legs, BOS/CHoCH, historical/present, colored/monochrome.
-- Inputs for internal and swing structure, bullish/bearish BOS/CHoCH filters, confluence filter, label sizing and swing point display.
-- Internal and swing order-block display controls, ATR or cumulative mean range filter choice, close or high/low mitigation choice, zone colors and display counts.
-- EQH/EQL confirmation length and threshold controls.
-- FVG controls: optional auto threshold, selectable timeframe, bull/bear colors and extension.
-- Optional daily, weekly and monthly high/low levels.
-- Optional premium, discount and equilibrium zone display.
-- Custom Pine types for alerts, trailing extremes, fair value gaps, trend, equal-high/low display, pivots and order blocks.
-- Persistent swing/internal/equal-high/equal-low pivot state, trend state, FVG arrays, parsed/raw highs/lows, timestamps, trailing extremes, order-block arrays and box arrays.
-- Style-dependent colors and `varip` bar-index tracking.
+## What the engine does
+The source maintains separate internal and swing pivots/trend biases, detects structure breaks, optionally stores candle-derived order-block zones, detects equal highs/lows, creates and invalidates fair-value-gap zones, tracks trailing swing extremes, and can display prior daily/weekly/monthly levels and premium/discount/equilibrium regions.
 
-## Feature inventory visible in the submitted source
+### Feature selection for the unified XAUUSD app
 
-| Feature | What it can contribute | Initial decision |
+| Feature | Proposed use | Decision |
 |---|---|---|
-| Swing market structure | Confirmed swing highs/lows and major structure breaks | Core candidate |
-| Internal market structure | Faster, more sensitive structure shifts | Candidate; filter noise |
-| BOS | Continuation break of a prior structure level | Core candidate |
-| CHoCH | Potential change in directional structure | Core candidate; require close/confirmation |
-| Internal and swing trend bias | Separate short-term and major structure direction | Core candidate |
-| Internal and swing order blocks | Candle-origin zones associated with structure moves | Candidate; validate exact creation/mitigation rules from full source |
-| Equal highs / equal lows | Potential liquidity pools | Core candidate |
-| Fair Value Gaps | Three-candle imbalance zones, optionally on another timeframe | Core candidate; validate threshold and mitigation rules |
-| Strong / weak highs and lows | Context for likely protected vs vulnerable extremes | Candidate; treat as heuristic |
-| Daily / weekly / monthly highs and lows | Higher-timeframe reference levels | Core candidate |
-| Premium / discount / equilibrium | Position within the current dealing range | Core candidate |
-| Trend-colored candles | Visual summary of structure bias | Optional display only |
+| Swing pivots and swing trend | 1H/4H directional market structure | Adopt; pivot confirmation timestamp must be explicit |
+| Swing BOS / CHoCH | Major continuation / possible reversal evidence | Adopt; use closed-bar break as default |
+| Internal BOS / CHoCH | 15m/5m execution context | Adopt as secondary evidence; never equal-weight with swing break |
+| Internal/swing order blocks | Candidate reaction zones from displacement-origin candles | Adapt; freshness, age, mitigation and invalidation tracking required |
+| EQH / EQL | Candidate liquidity pools | Adopt; cluster nearby levels by ATR/tick tolerance |
+| FVG | Imbalance zone and retracement context | Adopt; confirmed HTF values only |
+| Strong/weak highs and lows | Vulnerability/context of current extremes | Adopt as heuristic, not certainty |
+| Daily/weekly/monthly highs/lows | External liquidity and target references | Adopt; use prior completed periods |
+| Premium/discount/equilibrium | Position within a defined dealing range | Adopt; define range from confirmed 1H/4H swing anchors |
+| Trend-colored candles and visual labels | Chart decoration | Do not use in decision scoring |
 
-## Important implementation notes
-- Pivot-based swing points are only known after their right-side confirmation bars have elapsed. The app must timestamp the actual pivot candle separately from the later confirmation candle; never backdate a signal as if it were known earlier.
-- BOS/CHoCH must be calculated from confirmed levels and a documented break rule (close or wick). The user-visible trade trigger should default to closed-candle confirmation.
-- Order blocks are price-action-derived zones in this script, not verified resting institutional orders or bank order-book positions.
-- Equal highs/lows are candidate liquidity pools, not proof that stops exist at that price.
-- FVG is a candle-price imbalance, not proof of unfilled institutional orders.
-- MTF FVG and HTF levels require correct timeframe alignment, timezone handling and no future-bar leakage.
-- Internal structure is expected to be noisier than swing structure. Do not count both as two independent confirmations when they describe the same break.
-- Premium/discount depends on the selected dealing range. The exact range update rules must be recovered from the complete source.
-- The declared `varip` bar-index state may affect intrabar/realtime behavior. The full execution section is needed to determine whether historical and realtime results diverge.
-- Settings and UDT declarations do not reveal the exact calculation rules. Do not implement inferred behavior as if it were source parity.
+## Source-level defects and adaptation requirements
+1. **MTF FVG repaint risk:** `drawFairValueGaps()` calls `request.security(..., lookahead_on)` while requesting current HTF high/low/time fields. The port must only publish a gap after its source timeframe candle is confirmed, or use a rigorously shifted confirmed-bar expression. Do not copy this request pattern blindly.
+2. **Array removal while iterating:** `deleteOrderBlocks()` and `deleteFairValueGaps()` remove elements from arrays during forward iteration. Depending on Pine iteration semantics this can skip adjacent invalidated entries. Port with reverse-index removal or a filtered rebuild and test multiple simultaneous invalidations.
+3. **Unbounded history arrays:** `parsedHighs`, `parsedLows`, `highs`, `lows`, and `times` grow on every bar. The app implementation needs bounded retention or ring buffers without breaking index-to-time alignment.
+4. **Pivot confirmation delay:** pivots are detected using an offset `size`; the pivot candle and the later confirmation candle are different. Store both timestamps. Never display a historical pivot as a signal that was available on the pivot candle.
+5. **Order-block meaning:** these are candle-derived price zones around selected parsed highs/lows. They are not actual bank orders, resting liquidity, or verified institutional footprints.
+6. **Equal highs/lows meaning:** EQH/EQL are approximate clustered extremes; they indicate possible liquidity concentration, not proof of stop orders.
+7. **FVG threshold and MTF alignment:** reproduce the source calculation only in a parity mode, then separately test a corrected confirmed-HTF mode. Do not silently mix source parity and safer behavior.
+8. **Volatility parsing:** large-range candles are parsed with high/low swapped for OB selection. Test zero/NA ATR warmup and sparse history.
+9. **Trailing range initialization:** trailing extremes can be NA until valid swing pivots arrive. Guard all range, premium/discount and strong/weak calculations until both anchors are valid.
+10. **Chart timeframe assumptions:** swing length is 50 and internal length is fixed at 5 in the supplied execution block. The unified app should use explicit timeframe profiles rather than letting a 3m chart redefine the primary 1H/4H structure.
+11. **Alerts are event flags:** map alert booleans to one-bar events and ensure they do not persist or duplicate across realtime recalculations.
+12. **License and attribution:** preserve LuxAlgo credit and CC BY-NC-SA notice in any derivative implementation and distribution. Commercial deployment needs separate licensing advice/permission.
 
-## Proposed role in the combined app
-Use this as the Market Structure and Liquidity Context engine, complementary to Engine 01 (Alpha Signal Engine Pro):
-1. Engine 01 provides trend/direction regime and flip signal.
-2. Engine 02 provides structure context: swing/internal BOS/CHoCH, EQH/EQL, OB/FVG zones and HTF levels.
-3. Engine 03 (WSB) provides wick-sequence and breakout/retest setup evidence.
-4. Engine 04 (AI Channels) provides channel/regime context, not standalone entry signals.
-5. A separate confluence/risk planner decides BUY / SELL / WAIT. It must not issue a trade merely because one structure label appeared.
-6. Entry, SL and TP must be calculated by a separate tested risk module; they are not claimed as supplied by this source.
+## Recommended timeframe architecture
+- **4H:** macro structure, major swing highs/lows, prior-week/month levels and broad dealing range.
+- **1H (primary):** authoritative trend/structure bias, swing BOS/CHoCH, main supply/demand and liquidity context.
+- **15m:** setup formation, internal structure shift, FVG/OB retest and WSB sequence.
+- **5m:** optional execution confirmation only; must not override 1H/4H bias by itself.
+- **3m:** visualization/execution detail only. It must never recalculate or relocate the master 1H/4H zones.
 
-## Work still blocked
-The remaining Pine source is required before implementing and validating:
-- pivot/leg detection and structure-break execution logic,
-- exact order-block parsing, filtering and mitigation,
-- equal-high/low matching and confirmation,
-- FVG detection, auto threshold, MTF request and invalidation,
-- trailing strong/weak extremes,
-- premium/discount range calculations,
-- alerts and bar confirmation behavior.
+All MTF data must be aligned by candle close time, use completed higher-timeframe bars for confirmed decisions, and carry source timeframe + confirmation timestamp.
 
-## Validation checklist
-- Port only after the complete source is received.
-- Build golden fixtures from identical standard OHLCV/timeframe/settings and compare against TradingView exports.
-- Test pivot confirmation delay, bar-close vs wick breaks, MTF alignment, zone invalidation, missing volume, session gaps and replay for look-ahead.
-- Do not claim profitability or real institutional order visibility.
+## Combined-engine role
+This is the **Structure & Liquidity Context engine**, not a standalone BUY/SELL engine:
+- Alpha Signal Engine: trend/regime and momentum transition.
+- SMC: structure, BOS/CHoCH, candidate OB/FVG, EQH/EQL and HTF levels.
+- WSB: wick-sequence/absorption-style formation and breakout evidence.
+- AI Channels: adaptive price-cluster channel and regime context.
+- Confluence/risk planner: resolves agreement/conflict, creates WAIT when evidence is weak, and calculates entry/SL/TP separately.
+
+Avoid double counting: swing BOS + internal BOS for the same break are one structural family; OB + FVG + displacement from the same impulse are related evidence; WSB wick/volume/range subconditions are one setup family; AI channel position and its denoised state are one context family.
+
+## Validation required before production
+- Golden OHLCV fixtures exported from TradingView with exact symbol, timeframe, settings and timezone.
+- Compare pivot events, BOS/CHoCH events, OB bounds/mitigation, EQH/EQL, FVG creation/invalidation, prior-period levels and premium/discount values.
+- Test no-lookahead on 4H→1H→15m→5m, realtime/replay consistency, gaps/session boundaries, missing volume, NA warmup, and multiple zone invalidations on one bar.
+- Include a separate corrected mode for repaint/array/retention fixes; document intentional differences from original LuxAlgo output.
+- Do not claim profitability or actual institutional order-flow visibility.
