@@ -17,18 +17,18 @@ def stamp(value: str) -> int:
         if dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp())
 
-def load(path: str) -> dict[int,str]:
+def load(path: str, signal_column: str = "signal") -> dict[int,str]:
     out={}
     with open(path,newline="",encoding="utf-8-sig") as f:
         reader=csv.DictReader(f)
-        if not reader.fieldnames or not {"time","signal"}.issubset(set(reader.fieldnames)):
-            raise ValueError("CSV requires columns: time,signal")
+        if not reader.fieldnames or "time" not in reader.fieldnames or signal_column not in reader.fieldnames:
+            raise ValueError(f"CSV requires columns: time,{signal_column}")
         for row in reader:
-            side=row["signal"].strip().upper()
-            if side in ("LONG","BUY"): side="BUY"
-            elif side in ("SHORT","SELL"): side="SELL"
-            elif side in ("","NONE","FLAT","WAIT","0"): side="WAIT"
-            else: raise ValueError(f"Unknown signal value: {side}")
+            raw_side=row[signal_column].strip().upper()
+            if raw_side in ("1", "1.0", "1.00", "LONG", "BUY"): side="BUY"
+            elif raw_side in ("-1", "-1.0", "-1.00", "SHORT", "SELL"): side="SELL"
+            elif raw_side in ("", "NONE", "FLAT", "WAIT", "0", "0.0", "0.00"): side="WAIT"
+            else: raise ValueError(f"Unknown signal value in {signal_column}: {raw_side}")
             t=stamp(row["time"])
             if t in out: raise ValueError(f"Duplicate timestamp: {t}")
             out[t]=side
@@ -58,8 +58,9 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--reference",required=True); ap.add_argument("--candidate",required=True)
     ap.add_argument("--tolerance-seconds",type=int,default=0); ap.add_argument("--output")
+    ap.add_argument("--signal-column",default="signal",help="Signal field in the reference CSV")
     a=ap.parse_args()
-    result=compare(load(a.reference),load(a.candidate),a.tolerance_seconds)
+    result=compare(load(a.reference,a.signal_column),load(a.candidate),a.tolerance_seconds)
     raw=json.dumps(result,indent=2)
     if a.output: Path(a.output).write_text(raw+"\\n",encoding="utf-8")
     print(raw)
