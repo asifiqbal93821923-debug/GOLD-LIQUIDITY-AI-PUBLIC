@@ -6,6 +6,7 @@ the complete LuxAlgo Pine port and does not expose actual resting orders.
 """
 from __future__ import annotations
 from typing import Any
+from datetime import datetime, timezone
 
 
 def _valid(candles: list[dict[str, Any]]) -> tuple[list[dict[str, float]], str | None]:
@@ -19,10 +20,25 @@ def _valid(candles: list[dict[str, Any]]) -> tuple[list[dict[str, float]], str |
                 raise ValueError("non-finite price")
             if h < max(o,c,l) or l > min(o,c,h):
                 raise ValueError("invalid OHLC bounds")
-            out.append({"open":o,"high":h,"low":l,"close":c})
+            out.append({"open":o,"high":h,"low":l,"close":c,"time":row.get("time")})
         except (KeyError,TypeError,ValueError) as exc:
             return [],f"INVALID_CANDLE_{i}:{exc}"
     return out,None
+
+
+def _epoch(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            number=float(value)
+            return int(number / 1000) if number > 10_000_000_000 else int(number)
+        parsed=datetime.fromisoformat(str(value).replace("Z","+00:00"))
+        if parsed.tzinfo is None:
+            parsed=parsed.replace(tzinfo=timezone.utc)
+        return int(parsed.timestamp())
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def _pivots(rows: list[dict[str,float]], side: str, left: int, right: int):
@@ -109,8 +125,13 @@ def analyze_smc_structure(candles: list[dict[str,Any]], settings: dict[str,Any] 
     for z in fvgs[-int(p["max_zones"])*3:]:
         later=rows[z["formed_index"]+1:]
         mitigated=any(r["low"]<=z["high"] and r["high"]>=z["low"] for r in later)
-        if not mitigated:
-            active_fvgs.append({k:v for k,v in z.items() if k!="formed_index"} | {"source":"three_candle_gap_proxy"})
+        broken=any((z["direction"]=="bullish" and r["close"]<z["low"]) or
+                    (z["direction"]=="bearish" and r["close"]>z["high"]) for r in later)
+        status="invalidated" if broken else "mitigated" if mitigated else "active"
+        z.update({"status":status,"start_time":_epoch(rows[z["formed_index"]].get("time")),
+                  "zone_type":"fvg","source":"three_candle_gap_proxy"})
+        if status=="active":
+            active_fvgs.append({k:v for k,v in z.items() if k!="formed_index"})
 
     # OB candidates: last opposite candle before a confirmed displacement break.
     obs=[]
@@ -122,8 +143,16 @@ def analyze_smc_structure(candles: list[dict[str,Any]], settings: dict[str,Any] 
             opposite=(ev["direction"]=="bullish" and r["close"]<r["open"]) or (ev["direction"]=="bearish" and r["close"]>r["open"])
             if opposite:
                 obs.append({"direction":ev["direction"],"low":r["low"],"high":r["high"],
-                            "source":"last_opposite_candle_candidate","confirmed":True})
+                            "source":"last_opposite_candle_candidate","confirmed":True,
+                            "formed_index":j,"start_time":_epoch(r.get("time")),"zone_type":"order_block"})
                 break
+    for z in obs:
+        later=rows[next((i for i,r in enumerate(rows) if _epoch(r.get("time"))==z.get("start_time")),len(rows)-1)+1:]
+        touched=any(r["low"]<=z["high"] and r["high"]>=z["low"] for r in later)
+        broken=any((z["direction"]=="bullish" and r["close"]<z["low"]) or
+                   (z["direction"]=="bearish" and r["close"]>z["high"]) for r in later)
+        z["status"]="invalidated" if broken else "mitigated" if touched else "active"
+        z.pop("formed_index",None)
     obs=obs[-int(p["max_zones"]):]
     hi=max(r["high"] for r in rows[-min(50,len(rows)):])
     lo=min(r["low"] for r in rows[-min(50,len(rows)):])
@@ -136,6 +165,7 @@ def analyze_smc_structure(candles: list[dict[str,Any]], settings: dict[str,Any] 
       "direction":state,"last_structure_event":events[-1] if events else None,"structure_events":events,
       "swing_high":sh,"swing_low":sl,"equal_high_pools":eqh,"equal_low_pools":eql,
       "order_block_candidates":obs,"active_fvgs":active_fvgs[-int(p["max_zones"]):],
+      "zones":(fvgs[-int(p["max_zones"]):]+obs)[-int(p["max_zones"])*2:],
       "premium_discount":{"range_high":hi,"range_low":lo,"equilibrium":midpoint,"location":location},
       "displacement":{"current_bar":bool(displacement),"body_atr":round(abs(last["close"]-last["open"])/max(atr,1e-12),3)},
       "liquidity_sweep_proxy":{"above_swing_high_reclaim":bool(sh and last["high"]>sh["price"] and last["close"]<sh["price"]),
