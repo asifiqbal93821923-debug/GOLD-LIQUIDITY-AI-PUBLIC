@@ -1,4 +1,4 @@
-name: Download same-feed XAUUSD historical CSVs
+name: Download independent Dukascopy XAUUSD research history
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Download Dukascopy XAUUSD M1 BID and derive all timeframes
+      - name: Download independent Dukascopy XAUUSD M1 BID and derive timeframes
         env:
           FROM_DATE: ${{ inputs.from_date || '2020-01-01' }}
           TO_DATE: ${{ inputs.to_date || '' }}
@@ -42,14 +42,14 @@ jobs:
           python scripts/download_xauusd_same_feed.py \
             --from-date "$FROM_DATE" \
             --to-date "$TO_DATE" \
-            --output-dir data/phase2 \
-            --raw-dir data/raw
-      - name: Audit all generated CSVs
+            --output-dir data/dukascopy_research \
+            --raw-dir data/raw/dukascopy_research
+      - name: Audit independent research CSVs
         run: |
           python - <<'PY'
           import csv, json
           from pathlib import Path
-          root = Path("data/phase2")
+          root = Path("data/dukascopy_research")
           manifest = json.loads((root / "xauusd_data_manifest.json").read_text())
           expected = {"4h": "xauusd_4h.csv", "1h": "xauusd_1h.csv", "15m": "xauusd_15m.csv"}
           for tf, name in expected.items():
@@ -65,16 +65,20 @@ jobs:
           assert manifest["provider"] == "Dukascopy"
           assert manifest["price_side"] == "BID"
           assert manifest["timezone"] == "UTC"
-          print("SAME-FEED PROVENANCE: PASS")
+          assert manifest["feed_role"] == "independent_research_only"
+          assert manifest["tradingview_same_feed_verified"] is False
+          assert manifest["broker_execution_prices_verified"] is False
+          print("DUKASCOPY RESEARCH DATA QUALITY: PASS")
+          print("TRADINGVIEW SAME-FEED ACCEPTANCE: NOT CLAIMED")
           PY
-      - name: Upload the three CSVs and provenance manifest
+      - name: Upload separate Dukascopy research dataset
         uses: actions/upload-artifact@v4
         with:
-          name: xauusd-same-feed-historical-csvs
+          name: dukascopy-xauusd-independent-research
           path: |
-            data/phase2/xauusd_4h.csv
-            data/phase2/xauusd_1h.csv
-            data/phase2/xauusd_15m.csv
-            data/phase2/xauusd_data_manifest.json
+            data/dukascopy_research/xauusd_4h.csv
+            data/dukascopy_research/xauusd_1h.csv
+            data/dukascopy_research/xauusd_15m.csv
+            data/dukascopy_research/xauusd_data_manifest.json
           if-no-files-found: error
           retention-days: 90
