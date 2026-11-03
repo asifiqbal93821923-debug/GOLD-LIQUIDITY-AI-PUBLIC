@@ -12,14 +12,6 @@
 .report-result{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;padding:18px 0}.decision{font:800 18px 'DM Mono',monospace;padding:12px 17px;border-radius:9px;min-width:92px;text-align:center}.decision.buy{background:#164b3b;color:#73e0b8}.decision.sell{background:#542b34;color:#ff9da8}.decision.wait{background:#4a3b23;color:#e5c17e}
 .report-result p,.report-result small{font-size:10px;color:#91a0b5;line-height:1.7}.reason-list,.risk-grid{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}.reason-list b{width:100%;font-size:11px}.reason-list span,.risk-grid span{font:10px 'DM Mono',monospace;color:#aab8c9;border:1px solid #2b394b;border-radius:6px;padding:7px 9px}.report-result>small{grid-column:1/-1}
 @media(max-width:760px){.chart-host{height:240px;min-height:240px}.chart-overlay{height:240px;margin-top:-240px}.import-card,.report-card{padding:13px}.import-actions{align-items:flex-start;flex-direction:column}.report-result{gap:10px}.decision{font-size:15px;min-width:75px;padding:10px}.action-btn{padding:8px 10px}}
-
-.cost-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.cost-inputs label{display:flex;flex-direction:column;gap:6px;font:9px 'DM Mono',monospace;color:#8293a8}.cost-inputs input{width:100%;min-width:0;background:#0a111b;border:1px solid #2b394b;border-radius:6px;color:#dbe4ef;padding:8px;font:11px 'DM Mono',monospace}.backtest-result{padding:12px 0}.backtest-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.backtest-grid span{border:1px solid #2b394b;border-radius:7px;padding:10px;font:9px 'DM Mono',monospace;color:#8494a8}.backtest-grid b{display:block;color:#e3ebf5;font-size:14px;margin-top:7px}.backtest-result small{display:block;color:#91a0b5;font-size:10px;line-height:1.7;margin-top:12px}
-@media(max-width:760px){.cost-inputs{grid-template-columns:repeat(2,1fr)}.backtest-grid{grid-template-columns:repeat(2,1fr)}}
-
-.backtest-note{font-size:10px;line-height:1.7;color:#91a0b5}.cost-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.cost-inputs label{display:flex;flex-direction:column;gap:6px;font-size:9px;color:#8293a8}.cost-inputs input{min-width:0;width:100%;background:#0d1420;color:#d6deea;border:1px solid #2b394b;border-radius:6px;padding:8px;font:11px 'DM Mono',monospace}.backtest-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px 0}.backtest-results>div{background:#111b29;border:1px solid #27374b;border-radius:7px;padding:10px;display:flex;flex-direction:column;gap:5px}.backtest-results small{font:9px 'DM Mono',monospace;color:#8293a8}.backtest-results b{font:600 16px 'DM Mono',monospace;color:#d6deea}.backtest-results p{grid-column:1/-1;color:#91a0b5;font-size:10px;line-height:1.7}@media(max-width:760px){.cost-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.backtest-results{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-.backtest-actions{display:flex;gap:8px;flex-wrap:wrap}.action-btn.secondary{background:transparent;color:#d6deea;border-color:#46566c}.action-btn.secondary:hover{background:#1a2738}.mtf-backtest{margin-top:16px;padding:13px;border:1px solid #34465c;border-radius:8px;background:#101a28;display:flex;flex-direction:column;gap:9px}.mtf-backtest>b{font:10px 'DM Mono',monospace;color:#d7b77e;letter-spacing:.04em}.mtf-backtest>small{font-size:10px;line-height:1.6;color:#91a0b5}.mtf-backtest .backtest-grid{padding:0}
-
 /* Timestamped multi-timeframe SMC zone overlays */
 .chart-host{position:relative;overflow:hidden}
 .zone-overlay{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
@@ -31,9 +23,6 @@
 .zone-radar-row span{font:9px 'DM Mono',monospace;color:#9eb1c7}
 .zone-radar-row small,.zone-disclaimer{font-size:9px;color:#7e8fa4;line-height:1.6}
 .zone-disclaimer{display:block;margin-top:10px}
-
-
-
 /* Phase 3 risk, confirmed alerts and manual journal */
 .phase3-card{padding:18px;margin-bottom:14px;min-width:0}
 .phase3-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}
@@ -49,11 +38,9 @@
 .risk-settings summary::-webkit-details-marker{display:none}
 .risk-settings summary small{color:#8293a8;font-size:9px;font-weight:400;margin-left:4px}
 .risk-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
-.risk-form label,.journal-create label{display:flex;flex-direction:column;gap:5px;color:#8798ad;font:9px 'DM Mono',monospace;min-width:0}
-.risk-form input,.journal-create input,.journal-close input{width:100%;min-width:0;background:#0a111b;color:#dce5ef;border:1px solid #33455c;border-radius:6px;padding:8px;font:10px 'DM Mono',monospace}
 .phase3-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .phase3-actions small{font-size:9px;color:#7e91a7;line-height:1.5}
-.phase3-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.phase3-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}.phase3-columns.phase3-single{grid-template-columns:1fr}
 .phase3-columns .phase3-card{margin:0}
 .phase3-columns .section-head{gap:9px;align-items:flex-start}
 .phase3-columns .section-head h2{font-size:14px}
@@ -64,12 +51,6 @@
 .phase3-row span,.phase3-row small{font:9px 'DM Mono',monospace;color:#9aabc0;line-height:1.5;overflow-wrap:anywhere}
 .positive{color:#71d5b2!important}.negative{color:#ed929c!important}
 .phase3-empty{padding:18px;text-align:center;color:#8091a6;font-size:10px;line-height:1.6}
-.journal-create{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin:12px 0}
-.journal-create label{width:95px}
-.journal-row-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.text-action{align-self:flex-start;border:0;background:transparent;color:#d8b77d;text-decoration:underline;text-underline-offset:3px;padding:2px 0;font-size:9px;cursor:pointer}
-.journal-close{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0;padding:10px;border:1px solid #6c5440;border-radius:7px;background:#211b16}
-.journal-close b{grid-column:1/-1;font-size:10px;color:#edc990}
 .phase3-gate{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:10px;border:1px solid #34465b;border-radius:7px;background:#0d1723}
 .phase3-gate b{display:flex;align-items:center;gap:6px;width:100%;font-size:10px;color:#d9c18e}
 .phase3-gate span{font:9px 'DM Mono',monospace;color:#9eafc3;border:1px solid #29384b;border-radius:5px;padding:5px 7px}
@@ -78,12 +59,11 @@
 @media(max-width:760px){
  .phase3-card{padding:13px}.phase3-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
  .risk-form{grid-template-columns:repeat(2,minmax(0,1fr))}
- .phase3-columns{grid-template-columns:1fr}
+ .phase3-columns{grid-template-columns:1fr}.phase3-columns.phase3-single{grid-template-columns:1fr}
  .phase3-columns .section-head{flex-wrap:wrap}
  .phase3-actions{align-items:flex-start;flex-direction:column}
  .risk-settings summary{flex-wrap:wrap}.risk-settings summary small{width:100%;margin-left:22px}
 }
-
 .liquidity-content{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .liquidity-score{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #29384b;border-radius:7px;background:#0b131e}
 .liquidity-score span{font-size:10px;color:#9caec2}.liquidity-score b{margin-left:auto;font:600 16px 'DM Mono',monospace;color:#d5b47c}
@@ -101,3 +81,27 @@
 .feed-health-list span.healthy{color:#7bd9b6}
 .feed-health-list small{font:8px 'DM Mono',monospace;color:#7e91a7;line-height:1.5;overflow-wrap:anywhere}
 @media(max-width:760px){.liquidity-score{flex-wrap:wrap}.liquidity-score b{margin-left:0}.liquidity-score small{margin-left:auto}.feed-health-list{grid-template-columns:1fr 1fr}}
+/* Phase 4 validation workstation */
+.phase4-card{padding:18px;margin-bottom:14px;min-width:0}
+.phase4-intro{font-size:10px;line-height:1.7;color:#91a0b5}
+.phase4-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.phase4-form label{display:flex;flex-direction:column;gap:6px;font:9px 'DM Mono',monospace;color:#8293a8;min-width:0}
+.phase4-form input{width:100%;min-width:0;background:#0a111b;border:1px solid #33455c;border-radius:6px;color:#dce5ef;padding:8px;font:10px 'DM Mono',monospace}
+.phase4-attest{display:flex;align-items:flex-start;gap:8px;color:#b7c3d2;font-size:10px;line-height:1.6;margin:10px 0}
+.phase4-attest input{margin:2px 0 0;accent-color:#c49a5c}
+.phase4-warning{display:block;color:#bd9b68;font-size:9px;line-height:1.6;margin-top:8px}
+.phase4-results{margin-top:16px;border-top:1px solid #29384b;padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.phase4-status{display:flex;flex-direction:column;gap:5px;padding:11px;border-radius:7px;border:1px solid #65444a;background:#28191e;color:#e8a1a9;font-size:10px}
+.phase4-status.pass{border-color:#28634f;background:#10251f;color:#8cddbe}
+.phase4-status span{font:9px 'DM Mono',monospace}
+.phase4-subhead{font:10px 'DM Mono',monospace;letter-spacing:.04em;color:#d8b77d;margin-top:5px}
+.phase4-audits,.phase4-scenarios{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.phase4-audits>div,.phase4-scenarios>div{display:flex;flex-direction:column;gap:5px;padding:9px;border:1px solid #2b394b;background:#0b131e;border-radius:7px;min-width:0}
+.phase4-audits b,.phase4-scenarios b{font:9px 'DM Mono',monospace;color:#d9b77e}
+.phase4-audits span,.phase4-scenarios span,.phase4-audits small,.phase4-scenarios small{font:8px 'DM Mono',monospace;color:#9aabc0;line-height:1.55;overflow-wrap:anywhere}
+.phase4-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.phase4-metrics span{border:1px solid #2b394b;border-radius:7px;padding:9px;font:8px 'DM Mono',monospace;color:#8494a8;overflow-wrap:anywhere}
+.phase4-metrics b{display:block;color:#e3ebf5;font-size:12px;margin-top:6px}
+.phase4-blockers{display:flex;flex-direction:column;gap:6px}
+.phase4-blockers span{padding:8px;border:1px solid #5e4b39;border-radius:6px;color:#d7bb91;background:#1d1813;font-size:9px;line-height:1.6}
+@media(max-width:760px){.phase4-card{padding:13px}.phase4-form{grid-template-columns:repeat(2,minmax(0,1fr))}.phase4-audits,.phase4-scenarios{grid-template-columns:repeat(2,minmax(0,1fr))}.phase4-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

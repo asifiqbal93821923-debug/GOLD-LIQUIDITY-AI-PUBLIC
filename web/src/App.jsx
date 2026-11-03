@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, ColorType } from 'lightweight-charts';
-import { Activity, AlertTriangle, BarChart3, Bell, BookOpen, CandlestickChart, Clock3, Layers3, Radio, Save, Settings2, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, Bell, CandlestickChart, Clock3, Layers3, Radio, Save, Settings2, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
 
 const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
 const labels={ '3m':'৩ মিনিট','5m':'৫ মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
@@ -194,22 +194,18 @@ export default function App(){
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [report,setReport]=useState(null);
-  const [backtest,setBacktest]=useState(null);
-  const [backtestBusy,setBacktestBusy]=useState(false);
-  const [mtfBacktest,setMtfBacktest]=useState(null);
-  const [mtfBusy,setMtfBusy]=useState(false);
-  const [costs,setCosts]=useState({point_size:0.01,spread_points:20,slippage_points:5,commission_points_per_side:0});
   const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
   const [riskSettings,setRiskSettings]=useState({account_balance:null,contract_size:null,risk_percent:0.5,max_daily_loss_percent:2,max_trades_per_day:3,max_open_trades:1,cooldown_minutes:60,min_reward_risk:1.0,max_spread_points:null});
   const [riskSaving,setRiskSaving]=useState(false);
-  const [journalEntries,setJournalEntries]=useState([]);
-  const [journalSummary,setJournalSummary]=useState({opened_today_utc:0,open_trades:0,realized_pnl_today_utc:0});
   const [signalEvents,setSignalEvents]=useState([]);
-  const [journalLots,setJournalLots]=useState(0.01);
-  const [closingTrade,setClosingTrade]=useState(null);
-  const [closeValues,setCloseValues]=useState({exit_price:'',pnl_money:''});
   const [notificationPermission,setNotificationPermission]=useState(typeof window!=='undefined'&&'Notification' in window?Notification.permission:'unsupported');
+  const [phase4Report,setPhase4Report]=useState(null);
+  const [phase4Busy,setPhase4Busy]=useState(false);
+  const [phase4Provider,setPhase4Provider]=useState('');
+  const [phase4Timezone,setPhase4Timezone]=useState('UTC');
+  const [phase4SameFeed,setPhase4SameFeed]=useState(false);
+  const [phase4Costs,setPhase4Costs]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0,max_spread_points:0});
   const seenSignalIds=useRef(new Set());
   const firstAlertsLoad=useRef(false);
   const fileRef=useRef(null);
@@ -245,13 +241,11 @@ export default function App(){
 
   const refreshPhase3Records=useCallback(async(notifyNew=false)=>{
     try{
-      const [riskRes,journalRes,alertsRes]=await Promise.all([
+      const [riskRes,alertsRes]=await Promise.all([
         fetch(apiUrl('/api/risk/settings')),
-        fetch(apiUrl('/api/journal?limit=30')),
         fetch(apiUrl('/api/alerts?limit=30'))
       ]);
       if(riskRes.ok){const risk=await riskRes.json();if(risk.settings)setRiskSettings(risk.settings);}
-      if(journalRes.ok){const journal=await journalRes.json();setJournalEntries(journal.entries||[]);setJournalSummary(journal.summary||{opened_today_utc:0,open_trades:0,realized_pnl_today_utc:0});}
       if(alertsRes.ok){
         const alerts=await alertsRes.json();
         const events=alerts.events||[];
@@ -314,39 +308,34 @@ export default function App(){
   };
 
 
-  const runBacktest=async()=>{
-    setBacktest(null);setMessage('');
-    try{
-      const res=await fetch(apiUrl('/api/market/candles?timeframe=1h&limit=5000'));
-      const d=await res.json();
-      if((d.data||[]).length<50) throw new Error('Backtest-এর জন্য অন্তত ৫০টি ১H Candle Import করুন।');
-      const result=await fetch(apiUrl('/api/backtest/alpha-1h'),{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({candles:d.data,costs})});
-      const data=await result.json();if(!result.ok)throw new Error(data.detail||'Backtest failed');
-      setBacktest(data);
-    }catch(e){setMessage('Backtest Error: '+e.message);}
-  };
+  const decision=report?.decision||{};
+  const plan=decision.trade_plan;
 
-
-
-  const runMtfBacktest=async()=>{
-    setMtfBusy(true);setMtfBacktest(null);setMessage('');
+  const runPhase4Validation=async()=>{
+    setPhase4Busy(true);setPhase4Report(null);setMessage('');
     try{
       const frames={};
       for(const frame of ['4h','1h','15m','5m']){
-        const res=await fetch(apiUrl('/api/market/candles?timeframe='+frame+'&limit=3000'));
-        const d=await res.json();frames[frame]=d.data||[];
+        const res=await fetch(apiUrl('/api/market/candles?timeframe='+frame+'&limit=6000'));
+        if(!res.ok)throw new Error(frame.toUpperCase()+' history fetch failed ('+res.status+').');
+        const data=await res.json();frames[frame]=data.data||[];
       }
-      for(const frame of ['4h','1h','15m']) if(frames[frame].length<50) throw new Error(frame.toUpperCase()+'-এ অন্তত ৫০টি Candle দরকার।');
-      if(frames['5m'].length<30) delete frames['5m'];
-      const res=await fetch(apiUrl('/api/backtest/gold-mtf'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timeframes:frames,costs})});
-      const data=await res.json();if(!res.ok)throw new Error(data.detail||data.reason||'MTF backtest failed');setMtfBacktest(data);
-    }catch(e){setMessage('MTF Backtest Error: '+e.message);}
-    finally{setMtfBusy(false);}
+      const response=await fetch(apiUrl('/api/research/phase4-validation'),{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          timeframes:frames,
+          metadata:{symbol:'XAUUSD',provider:phase4Provider,timezone:phase4Timezone,
+            same_feed_confirmed:phase4SameFeed,source:'app historical store',
+            attestation:'user supplied; not independently verified'},
+          costs:{...phase4Costs,require_spread_limit:true},folds:4
+        })
+      });
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||'Phase 4 validation failed.');
+      setPhase4Report(data);
+    }catch(error){setMessage('Phase 4 Validation: '+(error?.message||'Unknown error'));}
+    finally{setPhase4Busy(false);}
   };
-
-  const decision=report?.decision||{};
-  const plan=decision.trade_plan;
 
   const saveRiskProfile=async()=>{
     setRiskSaving(true);
@@ -362,29 +351,6 @@ export default function App(){
     if(typeof Notification==='undefined'){setNotificationPermission('unsupported');return;}
     try{const permission=await Notification.requestPermission();setNotificationPermission(permission);}
     catch(_){setNotificationPermission('denied');}
-  };
-
-  const addCurrentPlanToJournal=async()=>{
-    if(!plan||!['BUY','SELL'].includes(decision.decision)){setMessage('Journal-এ যোগ করার মতো confirmed trade plan নেই।');return;}
-    const entryPrice=(Number(plan.entry?.[0])+Number(plan.entry?.[1]))/2;
-    try{
-      const res=await fetch(apiUrl('/api/journal'),{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({direction:decision.decision,entry_price:entryPrice,stop_loss:Number(plan.stop_loss),
-          target_price:Number(plan.targets?.[0]),lots:Number(journalLots),notes:'Gold Terminal 1H confirmed analysis · manual journal entry'})});
-      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Journal entry failed');
-      setMessage('Trade Journal-এ নতুন entry সংরক্ষিত হয়েছে।');await refreshPhase3Records(false);
-    }catch(error){setMessage('Journal: '+error.message);}
-  };
-
-  const closeJournalTrade=async()=>{
-    if(!closingTrade)return;
-    try{
-      const res=await fetch(apiUrl('/api/journal/'+encodeURIComponent(closingTrade.id)+'/close'),{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify({exit_price:Number(closeValues.exit_price),pnl_money:Number(closeValues.pnl_money)})});
-      const data=await res.json();if(!res.ok)throw new Error(data.detail||'Could not close journal trade');
-      setClosingTrade(null);setCloseValues({exit_price:'',pnl_money:''});setMessage('Trade Journal entry closed and saved.');
-      await refreshPhase3Records(false);
-    }catch(error){setMessage('Journal close: '+error.message);}
   };
 
   useEffect(()=>{
@@ -440,9 +406,6 @@ export default function App(){
     <section className="card phase3-card">
       <div className="section-head"><div><span className="eyebrow">TRADE PROTECTION</span><h2>Risk Management & Position Sizing</h2></div><ShieldCheck size={19}/></div>
       <div className="phase3-metrics">
-        <div><small>OPEN TRADES</small><b>{journalSummary.open_trades}</b></div>
-        <div><small>DAILY TRADE COUNT</small><b>{journalSummary.opened_today_utc}</b></div>
-        <div><small>REALIZED PNL TODAY (UTC)</small><b>{Number(journalSummary.realized_pnl_today_utc||0).toFixed(2)}</b></div>
         <div><small>LIVE SPREAD</small><b>{quoteInfo?.fresh?Number(quoteInfo.spread_points).toFixed(1)+' pts':'NOT LIVE'}</b></div>
       </div>
       {report?.risk_management&&<div className={'phase3-risk-state '+(report.risk_management.status==='approved'?'approved':'blocked')}>
@@ -467,7 +430,7 @@ export default function App(){
       </details>
     </section>
 
-    <section className="phase3-columns">
+    <section className="phase3-columns phase3-single">
       <article className="card phase3-card">
         <div className="section-head"><div><span className="eyebrow">CONFIRMED SIGNALS</span><h2>Alerts</h2></div>
           <button className="action-btn secondary" onClick={enableNotifications}><Bell size={13}/> {notificationPermission==='granted'?'Notifications ON':notificationPermission==='denied'?'Notifications blocked':'Enable notifications'}</button>
@@ -482,49 +445,61 @@ export default function App(){
           {!signalEvents.length&&<div className="phase3-empty">এখনও কোনো confirmed live signal নেই। Fresh MT5 candles, valid 1H setup ও acceptable spread দরকার।</div>}
         </div>
       </article>
-      <article className="card phase3-card">
-        <div className="section-head"><div><span className="eyebrow">MANUAL RECORDS · NO BROKER ORDERS</span><h2>Trade Journal</h2></div><BookOpen size={19}/></div>
-        <div className="journal-create">
-          <label>Lots<input type="number" min="0.001" step="0.001" value={journalLots} onChange={e=>setJournalLots(Number(e.target.value))}/></label>
-          <button className="action-btn" onClick={addCurrentPlanToJournal} disabled={!plan||!['BUY','SELL'].includes(decision.decision)||report?.risk_management?.approved_for_alert!==true}>Log current 1H plan</button>
-        </div>
-        {closingTrade&&<div className="journal-close">
-          <b>Close {closingTrade.direction} trade</b>
-          <input type="number" min="0.00001" placeholder="Exit price" value={closeValues.exit_price} onChange={e=>setCloseValues(v=>({...v,exit_price:e.target.value}))}/>
-          <input type="number" step="0.01" placeholder="Realized PnL (+/-)" value={closeValues.pnl_money} onChange={e=>setCloseValues(v=>({...v,pnl_money:e.target.value}))}/>
-          <button className="action-btn" onClick={closeJournalTrade} disabled={!closeValues.exit_price||closeValues.pnl_money===''}>Save close</button>
-          <button className="action-btn secondary" onClick={()=>setClosingTrade(null)}>Cancel</button>
-        </div>}
-        <div className="phase3-list">
-          {journalEntries.slice(0,8).map(entry=><div className="phase3-row" key={entry.id}>
-            <div className="journal-row-head"><b className={entry.direction==='BUY'?'positive':'negative'}>{entry.direction}</b><span>{entry.status} · {Number(entry.lots).toFixed(3)} lots</span></div>
-            <span>Entry {Number(entry.entry_price).toFixed(2)} · SL {Number(entry.stop_loss).toFixed(2)} · TP {Number(entry.target_price).toFixed(2)}</span>
-            {entry.status==='CLOSED'&&<small>Exit {Number(entry.exit_price).toFixed(2)} · PnL {Number(entry.pnl_money).toFixed(2)}</small>}
-            {entry.status==='OPEN'&&<button className="text-action" onClick={()=>{setClosingTrade(entry);setCloseValues({exit_price:'',pnl_money:''});}}>Close trade</button>}
-          </div>)}
-          {!journalEntries.length&&<div className="phase3-empty">কোনো journal trade নেই। Confirmed 1H plan পেলে এখানে manually log করতে পারবে।</div>}
-        </div>
-      </article>
-    </section>
+          </section>
 
-    <section className="card report-card">
-      <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><div className="backtest-actions"><button className="action-btn" onClick={runBacktest}>Run 1H Alpha</button><button className="action-btn secondary" onClick={runMtfBacktest} disabled={mtfBusy}>{mtfBusy?"Replay…":"Run Full MTF Replay"}</button></div></div>
-      <p className="backtest-note">এটি শুধু Alpha Signal Engine-এর ১H flip replay; সম্পূর্ণ 4H/1H/15M Gold Report strategy নয়। Broker-এর প্রকৃত execution cost বসাও।</p>
-      <div className="cost-inputs">
-        <label>Point Size<input type="number" min="0.000001" step="0.001" value={costs.point_size} onChange={e=>setCosts(v=>({...v,point_size:Number(e.target.value)}))}/></label>
-        <label>Spread (points)<input type="number" min="0" step="1" value={costs.spread_points} onChange={e=>setCosts(v=>({...v,spread_points:Number(e.target.value)}))}/></label>
-        <label>Slippage (points)<input type="number" min="0" step="1" value={costs.slippage_points} onChange={e=>setCosts(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
-        <label>Commission / side (points)<input type="number" min="0" step="1" value={costs.commission_points_per_side} onChange={e=>setCosts(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
+
+    <section className="card phase4-card">
+      <div className="section-head"><div><span className="eyebrow">PHASE 4 · VALIDATION GATE</span><h2>Gold Strategy Validation</h2></div>
+        <button className="action-btn" onClick={runPhase4Validation} disabled={phase4Busy}>{phase4Busy?'Validating…':'Run Full Validation'}</button>
       </div>
-      {!backtest?<div className="empty-state"><Activity size={22}/><b>১H Alpha Flip Replay</b><span>অন্তত ৫০টি ১H Historical Candle Import করে Backtest চালাও।</span></div>:
-        <div className="backtest-result"><div className="backtest-grid">
-          <span>Trades <b>{backtest.trade_count}</b></span><span>Win Rate <b>{backtest.win_rate_pct}%</b></span><span>Net PnL <b>{backtest.net_pnl_price}</b></span><span>Average R <b>{backtest.average_R}</b></span><span>Profit Factor <b>{backtest.profit_factor??'—'}</b></span><span>Max Drawdown <b>{backtest.max_drawdown_price}</b></span>
-        </div><small>{backtest.scope_warning||backtest.reason||backtest.execution_model}</small></div>}
-      <div className="mtf-backtest">
-        <b>FULL GOLD REPORT · 4H / 1H / 15M · OPTIONAL 5M</b>
-        {!mtfBacktest?<small>৪H Macro, ১H Primary, ১৫M Setup এবং থাকলে ৫M refinement ধরে causal historical replay চালাও।</small>:
-          <><div className="backtest-grid"><span>Trades <b>{mtfBacktest.trade_count}</b></span><span>Win Rate <b>{mtfBacktest.win_rate_pct}%</b></span><span>Net PnL <b>{mtfBacktest.net_pnl_price}</b></span><span>Average R <b>{mtfBacktest.average_R}</b></span><span>Profit Factor <b>{mtfBacktest.profit_factor??'—'}</b></span><span>Max DD <b>{mtfBacktest.max_drawdown_price}</b></span></div><small>Evaluated {mtfBacktest.signals_evaluated} · Accepted {mtfBacktest.accepted_signals} · Veto reasons: {JSON.stringify(mtfBacktest.veto_counts||{})}</small><small>{mtfBacktest.scope_warning}</small></>}
+      <p className="phase4-intro">একই XAUUSD feed-এর 4H, 1H, 15M ও optional 5M candle দিয়ে data audit, causal multi-timeframe replay, base/conservative/adverse cost stress এবং chronological walk-forward + sealed holdout পরীক্ষা হবে। Pine parity ও live broker execution আলাদা certification gate।</p>
+      <div className="phase4-form">
+        <label>Data provider / broker<input value={phase4Provider} onChange={e=>setPhase4Provider(e.target.value)} placeholder="যেমন: MT5 · broker name"/></label>
+        <label>Data timezone<input value={phase4Timezone} onChange={e=>setPhase4Timezone(e.target.value)} placeholder="UTC"/></label>
+        <label>Point size<input type="number" min="0.000001" step="0.001" value={phase4Costs.point_size} onChange={e=>setPhase4Costs(v=>({...v,point_size:Number(e.target.value)}))}/></label>
+        <label>Observed spread (points)<input type="number" min="0" step="0.1" value={phase4Costs.spread_points} onChange={e=>setPhase4Costs(v=>({...v,spread_points:Number(e.target.value)}))}/></label>
+        <label>Observed max spread cap<input type="number" min="0" step="0.1" value={phase4Costs.max_spread_points} onChange={e=>setPhase4Costs(v=>({...v,max_spread_points:Number(e.target.value)}))}/></label>
+        <label>Slippage (points)<input type="number" min="0" step="0.1" value={phase4Costs.slippage_points} onChange={e=>setPhase4Costs(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
+        <label>Commission / side (points)<input type="number" min="0" step="0.1" value={phase4Costs.commission_points_per_side} onChange={e=>setPhase4Costs(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
       </div>
+      <label className="phase4-attest"><input type="checkbox" checked={phase4SameFeed} onChange={e=>setPhase4SameFeed(e.target.checked)}/> আমি নিশ্চিত করছি 4H / 1H / 15M / 5M ডেটা একই XAUUSD provider, symbol ও timezone থেকে এসেছে (এটি user attestation; স্বয়ংক্রিয় প্রমাণ নয়)।</label>
+      <small className="phase4-warning">ব্যাংক/ব্রোকারের আসল spread, slippage, commission এবং point size বসাতে হবে। Max spread শূন্য থাকলে research entry fail-closed হবে। পরীক্ষার খরচ-মান broker evidence ছাড়া verified নয়।</small>
+      {phase4Report&&<div className="phase4-results">
+        <div className={'phase4-status '+(phase4Report.status==='research_pass_not_certified'?'pass':'blocked')}>
+          <b>{phase4Report.status==='research_pass_not_certified'?'RESEARCH RUN COMPLETE · NOT CERTIFIED':(phase4Report.status||'BLOCKED').replaceAll('_',' ').toUpperCase()}</b>
+          <span>Final certification: {phase4Report.final_certification||'NOT CERTIFIED'}</span>
+        </div>
+        <div className="phase4-subhead">Historical candle quality</div>
+        <div className="phase4-audits">
+          {Object.entries(phase4Report.data_audit||{}).map(([tf,audit])=><div key={tf}>
+            <b>{tf.toUpperCase()}</b><span>{audit.status||'missing'} · {audit.valid_unique_rows??0} valid</span>
+            <small>Closed {audit.closed_rows??0} · Duplicate {audit.duplicate_rows??0} · Invalid {audit.invalid_rows??0} · Gaps {audit.gap_count??0} · Forming {audit.forming_rows??0}</small>
+          </div>)}
+        </div>
+        <div className="phase4-subhead">Baseline MTF replay (net after entered costs)</div>
+        <div className="phase4-metrics">
+          {Object.entries(phase4Report.baseline_replay||{}).filter(([k])=>['trade_count','win_rate_pct','net_pnl_price','average_R','profit_factor','max_drawdown_price','signals_evaluated','accepted_signals'].includes(k)).map(([k,v])=><span key={k}>{k.replaceAll('_',' ')}<b>{v??'—'}</b></span>)}
+        </div>
+        <div className="phase4-subhead">Execution-cost stress</div>
+        <div className="phase4-scenarios">
+          {Object.entries(phase4Report.execution_cost_scenarios?.scenario_reports||{}).map(([name,item])=><div key={name}>
+            <b>{name.toUpperCase()}</b><span>Trades {item.metrics?.trade_count??'—'} · Net {item.metrics?.net_pnl_price??'—'}</span>
+            <small>Win {item.metrics?.win_rate_pct??'—'}% · PF {item.metrics?.profit_factor??'—'} · DD {item.metrics?.max_drawdown_price??'—'}</small>
+          </div>)}
+        </div>
+        <div className="phase4-subhead">Walk-forward / out-of-sample + sealed holdout</div>
+        <div className="phase4-metrics">
+          <span>WFO status<b>{phase4Report.walk_forward?.status??'—'}</b></span>
+          <span>Folds<b>{phase4Report.walk_forward?.aggregate_oos?.completed_folds??0}/{phase4Report.walk_forward?.fold_count??4}</b></span>
+          <span>OOS trades<b>{phase4Report.walk_forward?.aggregate_oos?.trade_count??'—'}</b></span>
+          <span>OOS net PnL<b>{phase4Report.walk_forward?.aggregate_oos?.net_pnl_price??'—'}</b></span>
+          <span>Holdout<b>{phase4Report.walk_forward?.sealed_holdout?.status??'—'}</b></span>
+          <span>Holdout net<b>{phase4Report.walk_forward?.sealed_holdout?.metrics?.net_pnl_price??'—'}</b></span>
+        </div>
+        <div className="phase4-subhead">Unfinished external certification gates</div>
+        <div className="phase4-blockers">{(phase4Report.blockers||[]).map((item,i)=><span key={i}>{item}</span>)}</div>
+        <small className="phase4-warning">Historical research output, not a profitability promise. OHLCV-derived liquidity is not an institutional order book. No live/paper execution has been certified.</small>
+      </div>}
     </section>
 
     <section className="lower-grid">
