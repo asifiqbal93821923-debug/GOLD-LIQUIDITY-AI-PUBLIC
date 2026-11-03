@@ -270,8 +270,8 @@ export default function App(){
       <div className="top-status"><span className={'api-dot '+api}/><span>API {api.toUpperCase()}</span><span className="divider-v"/><span className="mode-label">1H PRIMARY TERMINAL</span></div></header>
     <section className="welcome"><div><span className="eyebrow">WORKSPACE · XAUUSD</span><h1>See the market.<br/><em>Understand the move.</em></h1>
       <p>৪H Macro · ১H Main Trading · ১৫M Setup · ৫M Optional Entry Confirmation</p></div>
-      <div className="session-card"><span className="eyebrow">DATA STATUS</span><strong><Radio size={17}/> {config?.live_data?'LIVE FEED':'HISTORICAL MODE'}</strong>
-        <small>{config?.message||'API status যাচাই হচ্ছে…'}</small></div></section>
+      <div className="session-card"><span className="eyebrow">DATA STATUS</span><strong><Radio size={17}/> {config?.live_data?'LIVE MT5':dataKind==='free_public_sampled'?'FREE PUBLIC SAMPLE':'HISTORICAL MODE'}</strong>
+        <small>{dataKind==='free_public_sampled'?'XAUS-এর ৫-মিনিট sampled XAU spot; XM quote নয়, indicative only.':config?.message||'API status যাচাই হচ্ছে…'}</small></div></section>
 
     <section className="metric-grid">
       <article className="card metric"><div className="metric-top"><span>PRIMARY TIMEFRAME</span><Activity size={17}/></div><b>1 HOUR</b><small>Direction & trade plan source</small></article>
