@@ -62,6 +62,6 @@ def main():
     a=ap.parse_args()
     result=compare(load(a.reference,a.signal_column),load(a.candidate),a.tolerance_seconds)
     raw=json.dumps(result,indent=2)
-    if a.output: Path(a.output).write_text(raw+"\\n",encoding="utf-8")
+    if a.output: Path(a.output).write_text(raw+"\n",encoding="utf-8")
     print(raw)
 if __name__=="__main__": main()
