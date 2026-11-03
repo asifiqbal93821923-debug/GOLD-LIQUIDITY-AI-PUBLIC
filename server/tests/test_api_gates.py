@@ -60,12 +60,13 @@ class ServerTradeGateTests(unittest.TestCase):
     def test_recent_upload_of_stale_closed_bars_does_not_open_live_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
-            stale_rows=sample(timeframe="1h")
-            stale_rows[-1]["time"]-=7200
             for tf in ("4h","1h","15m"):
                 rows=sample(timeframe=tf)
                 if tf=="1h":
-                    rows[-1]["time"]-=7200
+                    # Age the entire uploaded series; shifting only the final
+                    # row makes the penultimate row the newest stored candle.
+                    for row in rows:
+                        row["time"]-=7200
                 store.upsert("XAUUSD",tf,rows,"mt5_bridge")
             with patch.object(api,"STORE",store):
                 self.assertFalse(api._fresh_ingest("1h"))
