@@ -17,10 +17,10 @@ CANDIDATES = [
     {"atr_period": atr, "swing_lookback": lookback, "stop_atr_buffer": buffer,
      "entry_atr_half_width": width, "target_rr": list(rr)}
     for atr in (10, 15, 20)
-    for lookback in (10, 20, 30)
-    for buffer in (0.05, 0.10, 0.20)
-    for width in (0.05, 0.10, 0.20)
-    for rr in ((1.0, 2.0, 3.0), (1.5, 2.5, 3.5), (1.0, 1.5, 2.0))
+    for lookback in (15, 30)
+    for buffer in (0.05, 0.15)
+    for width in (0.05, 0.15)
+    for rr in ((1.0, 2.0, 3.0), (1.5, 2.5, 3.5))
 ]
 
 
