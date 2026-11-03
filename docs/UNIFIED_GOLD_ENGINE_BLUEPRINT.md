@@ -101,5 +101,10 @@ Weights and thresholds must be learned/calibrated only on separated in-sample da
 - Gate F: connect live feed only after previous gates pass; paper trade before any live use.
 - Gate G: build PWA and Android package after stable web functionality.
 
+## Institutional Footprint & Liquidity Intelligence
+A fifth, isolated backend module now provides OHLCV-derived liquidity pool clusters, sweep/reclaim estimates, volume anomaly, candle-location buy/sell activity estimates, a 20-bar estimated delta, absorption proxy and a low-confidence activity score. It also explicitly reports order-book/MBO, true CVD, OI, large trade tape and iceberg detection as unavailable until a licensed data feed is connected. See docs/INSTITUTIONAL_FOOTPRINT_LIQUIDITY_ENGINE.md.
+
+The Gold Report AI API accepts 4H/1H/15M/5M candle arrays and returns a partial report when any timeframe is missing; it deliberately remains WAIT and does not convert liquidity proxies alone into trade signals.
+
 ## Current status
 All four source families have been reviewed and their candidate roles selected. This document is an architecture/selection blueprint, not a completed integrated indicator. Alpha has an initial Python port; SMC, WSB and AI Channels are not yet fully ported and parity-certified. There is no production live feed, validated trade planner or Android APK yet.
