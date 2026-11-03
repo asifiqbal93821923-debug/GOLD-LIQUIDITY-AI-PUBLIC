@@ -34,9 +34,18 @@ const FREE_INTRADAY_URL='https://xaus.com/api/v1/intraday?symbol=xau&hours=48';
 const FREE_BUCKET_SECONDS={'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400};
 async function loadFreePublicGoldCandles(frame){
   if(frame==='3m') throw new Error('ফ্রি পাবলিক Feed ৩ মিনিটের ডেটা দেয় না। ৫M বা ১৫M বেছে নিন।');
-  const response=await fetch(FREE_INTRADAY_URL,{headers:{Accept:'application/json'}});
-  if(!response.ok) throw new Error('ফ্রি Gold Feed unavailable: HTTP '+response.status);
-  const payload=await response.json();
+  // Prefer the scheduled GitHub Actions snapshot; fall back to the public XAUS endpoint.
+  let payload=null, snapshotSource='scheduled_snapshot';
+  try{
+    const snapshotResponse=await fetch(import.meta.env.BASE_URL+'data/market-snapshot.json',{cache:'no-store',headers:{Accept:'application/json'}});
+    if(snapshotResponse.ok) payload=await snapshotResponse.json();
+  }catch(_){}
+  if(!payload||!Array.isArray(payload.points)||!payload.points.length){
+    snapshotSource='direct_public_api';
+    const response=await fetch(FREE_INTRADAY_URL,{headers:{Accept:'application/json'}});
+    if(!response.ok) throw new Error('ফ্রি Gold Feed unavailable: HTTP '+response.status);
+    payload=await response.json();
+  }
   const points=Array.isArray(payload.points)?payload.points:[];
   const clean=points.map(p=>({time:Number(p.t),price:Number(p.p)}))
     .filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.price)&&p.price>0)
@@ -54,7 +63,7 @@ async function loadFreePublicGoldCandles(frame){
     else {row.high=Math.max(row.high,p.price);row.low=Math.min(row.low,p.price);row.close=p.price;}
   }
   const rows=[...grouped.values()].sort((a,b)=>a.time-b.time);
-  return {rows,source:'free_public_sampled',sampleAge:Math.round(latestAge),state:payload.data_state?.status||'unknown'};
+  return {rows,source:'free_public_sampled',sampleAge:Math.round(latestAge),state:payload.data_state?.status||'unknown',feedSource:snapshotSource};
 }
 
 function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
@@ -178,7 +187,7 @@ export default function App(){
       if(!rows.length){
         const free=await loadFreePublicGoldCandles(frame);
         rows=free.rows;kind=free.source;
-        setMessage('ফ্রি পাবলিক Gold Feed চলছে: ৫-মিনিটে সংগৃহীত sample থেকে '+frame.toUpperCase()+' bar তৈরি। এটি XM Broker Tick/আসল OHLCV নয়; ট্রেড execution-এর জন্য ব্যবহার করবেন না।');
+        setMessage('ফ্রি পাবলিক Gold Feed চলছে ('+(free.feedSource==='scheduled_snapshot'?'GitHub Actions snapshot':'direct XAUS fallback')+'): ৫-মিনিটে সংগৃহীত sample থেকে '+frame.toUpperCase()+' bar তৈরি। এটি XM Broker Tick/আসল OHLCV নয়; ট্রেড execution-এর জন্য ব্যবহার করবেন না।');
       }
       setCandles(rows);setDataKind(kind);setCounts(old=>({...old,[frame]:rows.length}));
       return rows;
