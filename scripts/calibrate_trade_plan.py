@@ -47,6 +47,8 @@ def calibrate(frames: dict[str, list[dict[str, Any]]], costs: dict[str, float],
             "candidate_count": len(CANDIDATES),
             "reason": "No candidate met minimum trades and positive net PnL in both train and validation.",
             "sealed_test_evaluated": False,
+            "chronological_bar_counts": split.get("bar_counts"),
+            "split_boundaries_epoch": split.get("boundary_epoch"),
             "costs": costs,
         }
     winner = max(ranked, key=lambda x: (x["score"], -x["candidate_index"]))
@@ -62,6 +64,8 @@ def calibrate(frames: dict[str, list[dict[str, Any]]], costs: dict[str, float],
         "winner": winner,
         "sealed_test": _metrics(sealed) if sealed.get("status") == "ok" else sealed,
         "sealed_test_evaluated": True,
+        "chronological_bar_counts": split.get("bar_counts"),
+        "split_boundaries_epoch": split.get("boundary_epoch"),
         "costs": costs,
         "warning": "Research calibration only. Not TradingView parity or a profitability guarantee; test is not to be re-optimized.",
     }
@@ -69,8 +73,24 @@ def calibrate(frames: dict[str, list[dict[str, Any]]], costs: dict[str, float],
 
 def _metrics(report: dict[str, Any]) -> dict[str, Any]:
     keys = ("trade_count", "win_rate_pct", "net_pnl_price", "average_R",
-            "profit_factor", "max_drawdown_price", "accepted_signals", "signals_evaluated")
-    return {key: report.get(key) for key in keys}
+            "profit_factor", "max_drawdown_price", "accepted_signals",
+            "signals_evaluated", "skipped_signals")
+    result = {key: report.get(key) for key in keys}
+    trades = report.get("trades") or []
+    skipped = int(report.get("skipped_signals") or 0)
+    signals = int(report.get("signals_evaluated") or 0)
+    result["expectancy_R"] = (
+        round(sum(float(t.get("net_R", 0.0)) for t in trades) / len(trades), 4)
+        if trades else None
+    )
+    result["losing_trades"] = sum(1 for t in trades if float(t.get("net_pnl_price", 0.0)) < 0)
+    result["skipped_signal_rate_pct"] = (
+        round(100.0 * skipped / max(1, signals), 2) if signals else None
+    )
+    result["sample_size_warning"] = (
+        "Small sample: interpret metrics cautiously." if len(trades) < 30 else None
+    )
+    return result
 
 
 def main() -> None:
