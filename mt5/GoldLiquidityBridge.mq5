@@ -1,0 +1,116 @@
+#property strict
+#property version   "1.00"
+#property description "Pushes CLOSED XAUUSD candles from MT5 to Project Indicator App."
+
+input string InpApiBaseUrl = "http://127.0.0.1:8765";
+input string InpBridgeToken = "SET_THE_SAME_SERVER_MARKET_INGEST_TOKEN";
+input string InpSymbol = "XAUUSD";
+input int    InpBarsToSend = 300;
+input int    InpTimerSeconds = 60;
+input bool   InpSendM5 = true;
+input bool   InpSendM15 = true;
+input bool   InpSendH1 = true;
+input bool   InpSendH4 = true;
+
+string TfName(ENUM_TIMEFRAMES tf)
+{
+   switch(tf)
+   {
+      case PERIOD_M5:  return "5m";
+      case PERIOD_M15: return "15m";
+      case PERIOD_H1:  return "1h";
+      case PERIOD_H4:  return "4h";
+      case PERIOD_M3:  return "3m";
+      case PERIOD_M30: return "30m";
+      case PERIOD_D1:  return "1D";
+      case PERIOD_M1:  return "1m";
+   }
+   return "";
+}
+
+bool SendTimeframe(ENUM_TIMEFRAMES tf)
+{
+   string tf_name=TfName(tf);
+   if(tf_name=="") return false;
+   MqlRates rates[];
+   ArraySetAsSeries(rates,false);
+   int copied=CopyRates(InpSymbol,tf,1,InpBarsToSend,rates); // start_pos=1 excludes the forming candle
+   if(copied<50)
+   {
+      Print("MT5 bridge: not enough closed candles for ",tf_name,", copied=",copied);
+      return false;
+   }
+
+   string candles="[";
+   for(int i=0;i<copied;i++)
+   {
+      if(i>0) candles+=",";
+      candles+=StringFormat(
+         "{\"time\":%I64d,\"open\":%s,\"high\":%s,\"low\":%s,\"close\":%s,\"volume\":%I64d}",
+         (long)rates[i].time,
+         DoubleToString(rates[i].open,_Digits),
+         DoubleToString(rates[i].high,_Digits),
+         DoubleToString(rates[i].low,_Digits),
+         DoubleToString(rates[i].close,_Digits),
+         (long)rates[i].tick_volume
+      );
+   }
+   candles+="]";
+   string body=StringFormat("{\"symbol\":\"XAUUSD\",\"timeframe\":\"%s\",\"source\":\"mt5_bridge\",\"candles\":%s}",tf_name,candles);
+   string headers="Content-Type: application/json\r\nX-Bridge-Token: "+InpBridgeToken+"\r\n";
+   char post_data[],result[];
+   StringToCharArray(body,post_data,0,WHOLE_ARRAY,CP_UTF8);
+   if(ArraySize(post_data)>0) ArrayResize(post_data,ArraySize(post_data)-1);
+   string response_headers;
+   ResetLastError();
+   int status=WebRequest("POST",InpApiBaseUrl+"/api/market/candles/bridge",headers,10000,post_data,result,response_headers);
+   if(status==-1)
+   {
+      Print("MT5 bridge WebRequest failed. Error=",GetLastError(),
+            ". Add the API host to MT5 Tools > Options > Expert Advisors > Allow WebRequest.");
+      return false;
+   }
+   string response=CharArrayToString(result,0,-1,CP_UTF8);
+   if(status<200 || status>=300)
+   {
+      Print("MT5 bridge HTTP ",status,": ",response);
+      return false;
+   }
+   Print("MT5 bridge OK ",tf_name," candles=",copied," response=",response);
+   return true;
+}
+
+void PushAll()
+{
+   if(InpSendH4)  SendTimeframe(PERIOD_H4);
+   if(InpSendH1)  SendTimeframe(PERIOD_H1);
+   if(InpSendM15) SendTimeframe(PERIOD_M15);
+   if(InpSendM5)  SendTimeframe(PERIOD_M5);
+}
+
+int OnInit()
+{
+   if(InpBridgeToken=="SET_THE_SAME_SERVER_MARKET_INGEST_TOKEN" || StringLen(InpBridgeToken)<16)
+   {
+      Print("Set a strong InpBridgeToken matching the server MARKET_INGEST_TOKEN (at least 16 characters).");
+      return INIT_PARAMETERS_INCORRECT;
+   }
+   if(!SymbolSelect(InpSymbol,true))
+   {
+      Print("Could not select symbol ",InpSymbol,". Check your broker's Gold symbol name.");
+      return INIT_FAILED;
+   }
+   EventSetTimer(MathMax(15,InpTimerSeconds));
+   PushAll();
+   return INIT_SUCCEEDED;
+}
+
+void OnTimer()
+{
+   PushAll();
+}
+
+void OnDeinit(const int reason)
+{
+   EventKillTimer();
+}
