@@ -26,7 +26,7 @@ except ImportError:
 
 app = FastAPI(title="Project Indicator App API", version="0.4.0")
 app.add_middleware(CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,https://asifiqbal93821923-debug.github.io").split(",") if origin.strip()],
     allow_credentials=True, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
 STORE = CandleStore(os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
