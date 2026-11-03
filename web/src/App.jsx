@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, BarChart3, CandlestickChart, Clock3, Layers3, 
 const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
 const labels={ '3m':'৩ মিনিট','5m':'৫ মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
 const API='';
+const ZONE_COLORS={bullish:'#27bd91',bearish:'#e16f7a'};
 
 function parseCsv(text){
   const lines=text.replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
@@ -29,7 +30,7 @@ function parseCsv(text){
 }
 
 function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
-  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]);
+  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]); const [zoneRects,setZoneRects]=useState([]);
   useEffect(()=>{
     if(!host.current) return;
     const chart=createChart(host.current,{autoSize:true,
@@ -48,6 +49,36 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
     const data=candles.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close}));
     try { seriesRef.current.setData(data); chartRef.current?.timeScale().fitContent(); } catch(e) { console.error('Chart data rejected',e); }
   },[candles]);
+  useEffect(()=>{
+    const chart=chartRef.current, series=seriesRef.current, el=host.current;
+    if(!chart||!series||!el) return;
+    const specs=[];
+    for(const tf of ['4h','1h','15m']){
+      const smc=report?.timeframes?.[tf]?.smc;
+      (smc?.zones||[]).filter(z=>z.status==='active'&&Number.isFinite(z.start_time)&&z.high>z.low)
+        .slice(-5).forEach((z,i)=>specs.push({...z,timeframe:tf,id:tf+'-'+z.zone_type+'-'+i}));
+    }
+    const update=()=>{
+      const width=el.clientWidth, height=el.clientHeight, ts=chart.timeScale();
+      const first=candles[0]?.time, last=candles[candles.length-1]?.time;
+      const next=specs.map(z=>{
+        if(first==null||last==null||z.start_time>last) return null;
+        const rawX=ts.timeToCoordinate(z.start_time);
+        const x=rawX==null?(z.start_time<first?0:null):Math.max(0,rawX);
+        const y1=series.priceToCoordinate(z.high), y2=series.priceToCoordinate(z.low);
+        if(x==null||y1==null||y2==null||y2<0||y1>height) return null;
+        const color=ZONE_COLORS[z.direction]||'#8da0b8';
+        return {id:z.id,left:x,top:Math.max(0,Math.min(y1,y2)),width:Math.max(0,width-x-64),
+          height:Math.max(2,Math.min(height,Math.max(y1,y2))-Math.max(0,Math.min(y1,y2))),
+          color,label:(z.timeframe.toUpperCase()+' '+(z.zone_type==='fvg'?'FVG':'OB')+' '+(z.direction==='bullish'?'DEMAND':'SUPPLY'))};
+      }).filter(Boolean);
+      setZoneRects(next);
+    };
+    update();
+    const resize=new ResizeObserver(update); resize.observe(el);
+    ts.subscribeVisibleLogicalRangeChange(update);
+    return ()=>{resize.disconnect();ts.unsubscribeVisibleLogicalRangeChange(update);};
+  },[report,candles]);
   useEffect(()=>{
     if(!seriesRef.current) return;
     priceLinesRef.current.forEach(line=>{try{seriesRef.current.removePriceLine(line);}catch(e){}});
@@ -76,9 +107,12 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
       <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?(dataKind==='mt5_bridge'?'MT5 BRIDGE':'HISTORICAL DATA'):'NO DATA'}</span></div>
     <div className="tf-row">{timeframes.map(t=><button key={t} className={timeframe===t?'tf active':'tf'} onClick={()=>setTimeframe(t)}>{t.toUpperCase()}</button>)}
       <button className="tf reload" onClick={onReload} disabled={loading}><RefreshCw size={13}/> Reload</button></div>
-    <div ref={host} className="chart-host" aria-label="XAUUSD historical candlestick chart"/>
+    <div ref={host} className="chart-host" aria-label="XAUUSD historical candlestick chart">
+      <div className="zone-overlay">{zoneRects.map(z=><div key={z.id} className="zone-rect" style={{left:z.left,top:z.top,width:z.width,height:z.height,borderColor:z.color,background:z.color+'22'}}>
+        <span style={{color:z.color}}>{z.label}</span></div>)}</div>
+    </div>
     {!candles.length&&<div className="chart-overlay"><CandlestickChart size={25}/><b>{loading?'Candle লোড হচ্ছে…':'এই Timeframe-এর Candle Data নেই'}</b><span>MT5 বা CSV থেকে Historical Candle Import করুন। কোনো Synthetic Price দেখানো হচ্ছে না।</span></div>}
-    <div className="chart-foot">চার্ট: {labels[timeframe]} · {candles.length} candles · {dataKind==='mt5_bridge'?'Recent MT5 closed candles':'Historical import only'}</div>
+    <div className="chart-foot">চার্ট: {labels[timeframe]} · {candles.length} candles · {dataKind==='mt5_bridge'?'Recent MT5 closed candles':'Historical import only'} · Active candle-derived zones: {zoneRects.length}</div>
   </section>;
 }
 
@@ -249,7 +283,15 @@ export default function App(){
 
     <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
-        <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>4H macro swing high/low plus 1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
+        <div className="zone-radar-list">{['4h','1h','15m'].flatMap(frame=>(report?.timeframes?.[frame]?.smc?.zones||[]).slice(-4).map((z,i)=>
+          <div className="zone-radar-row" key={frame+'-'+i+'-'+z.zone_type+'-'+z.direction}>
+            <b>{frame.toUpperCase()} · {z.zone_type==='fvg'?'FVG':'ORDER BLOCK'}</b>
+            <span>{z.direction==='bullish'?'DEMAND':'SUPPLY'} · {z.status?.toUpperCase()}</span>
+            <small>{Number(z.low).toFixed(2)} – {Number(z.high).toFixed(2)} {z.start_time?('· '+new Date(z.start_time*1000).toLocaleString()):'· timestamp unavailable'}</small>
+          </div>))}
+          {!report&&<div className="empty-state"><AlertTriangle size={22}/><b>Analysis চালালে জোন দেখা যাবে</b><span>4H macro, 1H primary এবং 15M setup থেকে candle-derived FVG ও Order Block zone তৈরি হবে।</span></div>}
+          {report&&!['4h','1h','15m'].some(frame=>(report?.timeframes?.[frame]?.smc?.zones||[]).length>0)&&<div className="empty-state"><AlertTriangle size={22}/><b>কোনো confirmed zone নেই</b><span>পর্যাপ্ত valid candle বা confirmed structure না থাকলে জোন দেখানো হবে না।</span></div>}
+        </div><small className="zone-disclaimer">জোনগুলো OHLCV candle-derived proxy; আসল institutional pending orders নয়। শুধু ACTIVE জোন চার্টে shaded overlay হিসেবে দেখানো হয়।</small></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
         <div className="empty-state"><Radio size={22}/><b>{config?.live_data?'MT5 Bridge Connected':'Live feed not connected'}</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Backtest-এ spread, commission ও slippage assumptions দেওয়া যায়; broker-এর আসল fee schedule এখনও যাচাই করা হয়নি.</span></div></article>
     </section>
