@@ -5,16 +5,16 @@ A standalone XAUUSD analysis application for Web and Android (PWA first, native 
 
 ## Implemented foundation
 - React + Vite responsive client and Lightweight Charts surface.
-- FastAPI health, configuration-status and candle-contract endpoints.
+- FastAPI health/configuration plus persistent SQLite historical-candle import/retrieval endpoints with OHLC validation.
 - Initial Alpha Signal Engine Pro calculation port, API and unit tests (TradingView parity pending).
-- Initial WAIT-first unified decision gate and API endpoint. It validates already-computed evidence; it does not yet calculate the upstream indicators.
+- 1H-primary Gold Report pipeline: 4H macro veto/context, 1H primary direction and initial risk-plan source, 15M setup confirmation, optional 5M entry refinement.\n- Web dashboard consumes imported historical candles, plots OHLC candles, and overlays initial 1H SMC candidate levels on the main chart.
 
 ## Planned modules
-1. Market data adapters: provider-neutral interface; evaluate broker MT5 bridge and licensed market-data WebSocket providers before choosing production feed.
+1. Market data adapters: historical CSV/JSON ingestion is implemented; provider-neutral live adapter and broker MT5 bridge/licensed WebSocket remain pending.
 2. Candle normalizer and timeframe aggregator: symbol, timeframe, timezone, OHLCV, source metadata, completed-bar boundaries and gap checks.
 3. Isolated feature engines: Alpha trend/volatility; SMC structure/liquidity; WSB wick/absorption/breakout; AI Channels price-distribution context.
 4. Context layer: sweep/reclaim, displacement, FVG and supply/demand freshness/mitigation/invalidation.
-5. Confluence decision: 4H macro bias + 1H main bias + 15M setup + 5M trigger, with WAIT-first gates and correlated-feature controls.
+5. Confluence decision: 4H macro context/veto + 1H primary bias and trade plan + 15M setup + optional 5M entry refinement, with WAIT-first gates and correlated-feature controls.
 6. Trade planner: entry range, invalidation/SL, TP1-TP3, risk/reward and WAIT state.
 7. Replay/backtest: historical candles, no-lookahead checks, fees/spread assumptions, walk-forward and out-of-sample reports.
 8. Bengali-first dashboard overlays and explanations.
