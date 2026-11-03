@@ -57,6 +57,45 @@ class ServerTradeGateTests(unittest.TestCase):
                 out=api.gold_report_analysis(self.payload())
                 self.assertIn("SPREAD_NOT_ACCEPTABLE",out["decision"]["reason_codes"])
 
+    def test_recent_upload_of_stale_closed_bars_does_not_open_live_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            stale_rows=sample(timeframe="1h")
+            stale_rows[-1]["time"]-=7200
+            for tf in ("4h","1h","15m"):
+                rows=sample(timeframe=tf)
+                if tf=="1h":
+                    rows[-1]["time"]-=7200
+                store.upsert("XAUUSD",tf,rows,"mt5_bridge")
+            with patch.object(api,"STORE",store):
+                self.assertFalse(api._fresh_ingest("1h"))
+                self.assertTrue(api._fresh_ingest("4h"))
+                self.assertTrue(api._fresh_ingest("15m"))
+
+    def test_bridge_rejects_unclosed_or_future_latest_candle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            now=int(time.time())
+            payload=api.CandleImportRequest(timeframe="1h",candles=[
+                api.Candle(time=now,open=2300,high=2301,low=2299,close=2300.5)
+            ])
+            with patch.object(api,"STORE",store), patch.dict(os.environ,{"MARKET_INGEST_TOKEN":"test-secret-token"}):
+                with self.assertRaises(api.HTTPException) as raised:
+                    api.mt5_candle_bridge(payload,"test-secret-token")
+                self.assertEqual(raised.exception.status_code,422)
+
+    def test_bridge_rejects_stale_latest_closed_candle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            now=int(time.time())
+            payload=api.CandleImportRequest(timeframe="1h",candles=[
+                api.Candle(time=now-3*3600,open=2300,high=2301,low=2299,close=2300.5)
+            ])
+            with patch.object(api,"STORE",store), patch.dict(os.environ,{"MARKET_INGEST_TOKEN":"test-secret-token"}):
+                with self.assertRaises(api.HTTPException) as raised:
+                    api.mt5_candle_bridge(payload,"test-secret-token")
+                self.assertEqual(raised.exception.status_code,422)
+
     def test_recent_mt5_bars_and_quote_open_server_gates(self):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
