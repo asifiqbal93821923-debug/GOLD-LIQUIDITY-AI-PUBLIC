@@ -53,6 +53,10 @@ Optional numeric-series check:
 --numeric-columns trend_line,atr,upper_band,lower_band --numeric-tolerance 0.000001
 ```
 
+## Strict CLI acceptance guard
+
+The command-line comparator requires both `--reference-meta` and `--candidate-meta`. It rejects missing/blank script, Pine version, symbol, provider, timezone, timeframe, bar timestamp basis, confirmation mode, or an empty settings object. A selected numeric series must contain at least one comparable numeric value; an all-empty series cannot pass. The Python `compare()` helper remains available for unit-level signal diagnostics, but that helper alone is not a Phase 2 acceptance result.
+
 ## PASS gate
 - metadata matches exactly;
 - no missing/extra timestamps;
