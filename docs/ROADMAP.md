@@ -2,9 +2,9 @@
 
 ## Phase 1 — Market data foundation
 - [ ] Confirm the execution reference feed (preferred: user's MT5 broker feed via a server-side bridge).
-- [ ] Implement provider adapter interface; keep API credentials server-side.
+- [x] Add a persistent SQLite historical-candle store and validated JSON import/retrieval API; keep secrets server-side. (Historical import only; provider adapter/live feed remains pending)
 - [ ] Validate XAUUSD symbol mapping, timezone, session gaps, candle boundaries and volume semantics.
-- [ ] Load historical candles and stream live updates without fabricating data.
+- [x] Load user-imported historical candles through API without fabricating data.\n- [ ] Connect a licensed/provider historical source and stream live updates.
 
 ## Phase 2 — Pine parity and engine registry
 - [x] Receive Alpha Signal Engine Pro source; create initial Python port, API contract and basic tests.
@@ -25,10 +25,10 @@
 - [ ] Calibrate evidence weights and confidence only after walk-forward/out-of-sample testing.
 
 ## Phase 3 — Chart and market structure
-- [ ] Render real OHLC candles on the chart for 5m, 15m, 30m, 1h, 4h and 1D.
+- [x] Render imported historical OHLC candles on the chart for supported timeframes; live candles remain pending.
 - [ ] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
 - [ ] Keep 1H/4H zones fixed when viewing 3m/5m charts; map by timestamps and price, not chart-local pivots.
-- [ ] Add confirmed swing structure, BOS/CHoCH, support/resistance and candle-derived supply/demand.
+- [x] Add initial 1H swing high/low, FVG, OB-candidate and EQH/EQL price-line overlays to the main chart (candidate levels; full zone rendering/validation pending).
 - [ ] Add EQH/EQL, confirmed FVG, prior D/W/M levels and liquidity sweep estimates.
 - [ ] Keep all meaningful markings on the main candlestick chart; no separate lower pane.
 
@@ -40,10 +40,10 @@
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
 
 ## Phase 5 — Web and Android delivery
-- [ ] Connect a production market data provider and live candle stream.
+- [ ] Connect a production market data provider and live candle stream (requires provider selection/credentials or MT5 bridge).
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
-- [x] Add backend unit tests and GitHub Actions compile/test workflow; latest workflow result not yet verified.
-- [ ] Responsive Bengali dashboard with trend, structure, liquidity, setup and risk explanations.
+- [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
+- [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.\n- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
 - [ ] PWA installation and offline-safe shell (market data remains online).
 - [ ] Android packaging only after web core, feed and validation are stable.
 - [ ] Deployment, monitoring, secret management and operational documentation.
@@ -56,5 +56,5 @@
 - [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
 - [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
 - [x] Unified architecture and implementation status documented.
-- [ ] No production market feed, certified Pine parity, fully calculated trade planner, live MBO/CVD/OI feed, or Android package yet.
+- [ ] No production market feed, certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, or Android package yet. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
