@@ -199,5 +199,24 @@ def institutional_footprint_analysis(payload: FootprintAnalysisRequest):
 def gold_report_analysis(payload: GoldReportRequest):
     timeframes={tf:[x.model_dump() for x in rows] for tf,rows in payload.timeframes.items()
       if tf in {"4h","1h","15m","5m"}}
-    return build_gold_report(timeframes,data_fresh=payload.data_fresh,
-      spread_acceptable=payload.spread_acceptable)
+    # Never trust browser-supplied freshness/spread booleans for the final trade gate.
+    now=datetime.now(timezone.utc)
+    fresh=True
+    for tf in ("4h","1h","15m"):
+        ingest=STORE.latest_ingest("XAUUSD",tf)
+        try:
+            recent=bool(ingest and ingest.get("source")=="mt5_bridge" and
+                (now-datetime.fromisoformat(ingest["updated_at"])).total_seconds()<=180)
+        except (TypeError,ValueError):
+            recent=False
+        fresh=fresh and recent
+    quote=STORE.latest_quote("XAUUSD")
+    spread_ok=False
+    if quote and quote.get("source")=="mt5_bridge":
+        try:
+            quote_recent=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()<=180
+            max_spread=float(os.getenv("MAX_SPREAD_POINTS","0"))
+            spread_ok=bool(quote_recent and max_spread>0 and quote["spread_points"]<=max_spread)
+        except (TypeError,ValueError):
+            spread_ok=False
+    return build_gold_report(timeframes,data_fresh=fresh,spread_acceptable=spread_ok)
