@@ -7,7 +7,7 @@ A standalone XAUUSD analysis application for Web and Android (PWA first, native 
 - React + Vite responsive client and Lightweight Charts surface.
 - FastAPI health/configuration plus persistent SQLite historical-candle import/retrieval endpoints with OHLC validation.
 - Initial Alpha Signal Engine Pro calculation port, API and unit tests (TradingView parity pending).
-- 1H-primary Gold Report pipeline: 4H macro veto/context, 1H primary direction and initial risk-plan source, 15M setup confirmation, optional 5M entry refinement.\n- Web dashboard consumes imported historical candles, plots OHLC candles, and overlays initial 1H SMC candidate levels on the main chart.
+- 1H-primary Gold Report pipeline: 4H macro veto/context, 1H primary direction and initial risk-plan source, 15M setup confirmation, optional 5M entry refinement.\n- Web dashboard consumes imported historical or recently bridged MT5 candles, plots OHLC candles, and overlays initial 1H SMC candidate levels on the main chart.\n- Authenticated MT5 Expert Advisor bridge source and SQLite ingestion path are implemented; user-side MT5/server configuration is still required.
 
 ## Planned modules
 1. Market data adapters: historical CSV/JSON ingestion is implemented; provider-neutral live adapter and broker MT5 bridge/licensed WebSocket remain pending.
