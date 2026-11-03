@@ -84,14 +84,17 @@ bool SendTimeframe(ENUM_TIMEFRAMES tf)
 
 bool SendQuote()
 {
-   double bid=SymbolInfoDouble(InpSymbol,SYMBOL_BID);
-   double ask=SymbolInfoDouble(InpSymbol,SYMBOL_ASK);
+   MqlTick tick;
+   if(!SymbolInfoTick(InpSymbol,tick)) return false;
+   double bid=tick.bid;
+   double ask=tick.ask;
    double point=SymbolInfoDouble(InpSymbol,SYMBOL_POINT);
-   if(bid<=0 || ask<bid || point<=0) return false;
+   if(bid<=0 || ask<bid || point<=0 || tick.time_msc<=0) return false;
    int digits=(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS);
+   long tick_epoch=(long)(tick.time_msc/1000);
    string body=StringFormat("{\"symbol\":\"XAUUSD\",\"time\":%I64d,\"bid\":%s,\"ask\":%s,\"point\":%s}",
-      (long)TimeCurrent(),DoubleToString(bid,digits),DoubleToString(ask,digits),DoubleToString(point,10));
-   string headers="Content-Type: application/json\r\nX-Bridge-Token: "+InpBridgeToken+"\r\n";
+      tick_epoch,DoubleToString(bid,digits),DoubleToString(ask,digits),DoubleToString(point,10));
+   string headers="Content-Type: application/json\\r\\nX-Bridge-Token: "+InpBridgeToken+"\\r\\n";
    char post_data[],result[];
    StringToCharArray(body,post_data,0,WHOLE_ARRAY,CP_UTF8);
    if(ArraySize(post_data)>0) ArrayResize(post_data,ArraySize(post_data)-1);
