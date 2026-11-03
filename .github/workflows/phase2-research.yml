@@ -88,6 +88,7 @@ jobs:
             --mode rolling \
             --train-fraction 0.12 \
             --test-fraction 0.10 \
+            --holdout-fraction 0.10 \
             --spread-points "${{ inputs.spread_points }}" \
             --slippage-points "${{ inputs.slippage_points }}" \
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
