@@ -32,6 +32,15 @@ class CandleStoreTests(unittest.TestCase):
             data=store.read("XAUUSD","1h",10)
             self.assertEqual([x["time"] for x in data],[1,2])
             self.assertEqual(data[1]["close"],11.5)
+    def test_latest_ingest_reports_source_and_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            rows=validate_candles([{"time":1,"open":10,"high":11,"low":9,"close":10}])
+            store.upsert("XAUUSD","1h",rows,"mt5_bridge")
+            info=store.latest_ingest("XAUUSD")
+            self.assertEqual(info["source"],"mt5_bridge")
+            self.assertTrue(info["updated_at"])
+
     def test_upsert_replaces_existing_timestamp(self):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
