@@ -53,7 +53,9 @@
 - [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
 - [x] Add PWA manifest, mobile metadata, icon, service-worker registration and offline app-shell cache (market data remains online; device install not yet manually verified).
 - [ ] Android packaging only after web core, feed and validation are stable.
-- [ ] Deployment, monitoring, secret management and operational documentation.
+- [x] Add Docker API/web images, Compose deployment, environment template and deployment guide.
+- [x] Add Docker image-build CI.
+- [ ] Deploy to a real host with DNS/TLS, backups, monitoring and production secret management.
 
 ## Current verified state
 - [x] React + Vite frontend foundation and build workflow.
