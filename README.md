@@ -21,7 +21,7 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - Authenticated MT5 Expert Advisor bridge for closed candles and Bid/Ask spread snapshots; actual live connection requires server token configuration and EA installation.
 - Installable PWA manifest, icon and offline app-shell cache; market/API data intentionally remains online-only.
 - Dockerfiles, Compose configuration and CI image-build checks for local/VPS deployment.
-- Research-only 1H Alpha flip replay endpoint with next-bar execution, conservative stop-first same-bar handling, partial TP exits and editable spread/slippage/commission assumptions.
+- Research-only 1H Alpha flip replay and causal multi-timeframe 4H/1H/15M/optional-5M Gold Report replay endpoints, with next-bar execution, conservative stop-first same-bar handling, partial TP exits and editable spread/slippage/commission assumptions.\n- Full MTF replay aligns only fully closed higher/lower timeframe candles to each 1H signal close to reduce future leakage; it remains an uncalibrated adapter-based research backtest.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
 **Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, full multi-timeframe backtesting/walk-forward validation, production host/DNS/TLS setup and Android APK packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
@@ -49,7 +49,7 @@ npm run dev
 The Vite development server proxies `/api` to the local FastAPI server.
 
 ### Import historical candles
-Use the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. For MT5 desktop streaming, see [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and compile [GoldLiquidityBridge.mq5](mt5/GoldLiquidityBridge.mq5). Set `MARKET_INGEST_TOKEN` on the server and the same token in EA inputs; do not commit the token. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`. The research replay is `POST /api/backtest/alpha-1h`; it tests only Alpha 1H flips, not the full multi-timeframe strategy.
+Use the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. For MT5 desktop streaming, see [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and compile [GoldLiquidityBridge.mq5](mt5/GoldLiquidityBridge.mq5). Set `MARKET_INGEST_TOKEN` on the server and the same token in EA inputs; do not commit the token. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`. Research endpoints: `POST /api/backtest/alpha-1h` tests only Alpha 1H flips; `POST /api/backtest/gold-mtf` replays the full 4H/1H/15M/optional-5M confluence using causal closed-bar alignment. Neither is certified Pine parity or a profitability guarantee.
 
 ## Security and trading safeguards
 - Store secrets in server environment variables only.
