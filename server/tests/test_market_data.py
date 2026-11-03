@@ -32,6 +32,14 @@ class CandleStoreTests(unittest.TestCase):
             data=store.read("XAUUSD","1h",10)
             self.assertEqual([x["time"] for x in data],[1,2])
             self.assertEqual(data[1]["close"],11.5)
+    def test_quote_store_calculates_spread_points(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            store.upsert_quote("XAUUSD",2350.10,2350.35,0.01,1767312000,"mt5_bridge")
+            quote=store.latest_quote("XAUUSD")
+            self.assertAlmostEqual(quote["spread_points"],25.0)
+            self.assertEqual(quote["source"],"mt5_bridge")
+
     def test_latest_ingest_reports_source_and_time(self):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
