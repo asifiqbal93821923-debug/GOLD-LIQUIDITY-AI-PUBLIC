@@ -204,6 +204,7 @@ export default function App(){
   const [riskSettings,setRiskSettings]=useState({account_balance:null,contract_size:null,risk_percent:0.5,max_daily_loss_percent:2,max_trades_per_day:3,max_open_trades:1,cooldown_minutes:60,min_reward_risk:1.0,max_spread_points:null});
   const [riskSaving,setRiskSaving]=useState(false);
   const [journalEntries,setJournalEntries]=useState([]);
+  const [journalSummary,setJournalSummary]=useState({opened_today_utc:0,open_trades:0,realized_pnl_today_utc:0});
   const [signalEvents,setSignalEvents]=useState([]);
   const [journalLots,setJournalLots]=useState(0.01);
   const [closingTrade,setClosingTrade]=useState(null);
@@ -242,16 +243,6 @@ export default function App(){
   useEffect(()=>{loadCandles(tf);},[tf,loadCandles]);
 
 
-  useEffect(()=>{
-    const timer=window.setInterval(()=>{
-      loadCandles(tf);
-      fetch(apiUrl('/api/config/status')).then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
-      fetch(apiUrl('/api/market/quote')).then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
-      refreshPhase3Records(true);
-    },30000);
-    return ()=>window.clearInterval(timer);
-  },[tf,loadCandles,refreshPhase3Records]);
-
   const refreshPhase3Records=useCallback(async(notifyNew=false)=>{
     try{
       const [riskRes,journalRes,alertsRes]=await Promise.all([
@@ -260,7 +251,7 @@ export default function App(){
         fetch(apiUrl('/api/alerts?limit=30'))
       ]);
       if(riskRes.ok){const risk=await riskRes.json();if(risk.settings)setRiskSettings(risk.settings);}
-      if(journalRes.ok){const journal=await journalRes.json();setJournalEntries(journal.entries||[]);}
+      if(journalRes.ok){const journal=await journalRes.json();setJournalEntries(journal.entries||[]);setJournalSummary(journal.summary||{opened_today_utc:0,open_trades:0,realized_pnl_today_utc:0});}
       if(alertsRes.ok){
         const alerts=await alertsRes.json();
         const events=alerts.events||[];
@@ -280,6 +271,16 @@ export default function App(){
   },[]);
 
   useEffect(()=>{refreshPhase3Records(false);},[refreshPhase3Records]);
+
+  useEffect(()=>{
+    const timer=window.setInterval(()=>{
+      loadCandles(tf);
+      fetch(apiUrl('/api/config/status')).then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
+      fetch(apiUrl('/api/market/quote')).then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
+      refreshPhase3Records(true);
+    },30000);
+    return ()=>window.clearInterval(timer);
+  },[tf,loadCandles,refreshPhase3Records]);
 
   const importFile=async file=>{
     if(!file)return;
@@ -439,9 +440,9 @@ export default function App(){
     <section className="card phase3-card">
       <div className="section-head"><div><span className="eyebrow">TRADE PROTECTION</span><h2>Risk Management & Position Sizing</h2></div><ShieldCheck size={19}/></div>
       <div className="phase3-metrics">
-        <div><small>OPEN TRADES</small><b>{journalEntries.filter(x=>x.status==='OPEN').length}</b></div>
-        <div><small>DAILY TRADE COUNT</small><b>{journalEntries.filter(x=>(x.opened_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).length}</b></div>
-        <div><small>REALIZED PNL TODAY (UTC)</small><b>{journalEntries.filter(x=>(x.closed_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).reduce((sum,x)=>sum+Number(x.pnl_money||0),0).toFixed(2)}</b></div>
+        <div><small>OPEN TRADES</small><b>{journalSummary.open_trades}</b></div>
+        <div><small>DAILY TRADE COUNT</small><b>{journalSummary.opened_today_utc}</b></div>
+        <div><small>REALIZED PNL TODAY (UTC)</small><b>{Number(journalSummary.realized_pnl_today_utc||0).toFixed(2)}</b></div>
         <div><small>LIVE SPREAD</small><b>{quoteInfo?.fresh?Number(quoteInfo.spread_points).toFixed(1)+' pts':'NOT LIVE'}</b></div>
       </div>
       {report?.risk_management&&<div className={'phase3-risk-state '+(report.risk_management.status==='approved'?'approved':'blocked')}>
@@ -485,7 +486,7 @@ export default function App(){
         <div className="section-head"><div><span className="eyebrow">MANUAL RECORDS · NO BROKER ORDERS</span><h2>Trade Journal</h2></div><BookOpen size={19}/></div>
         <div className="journal-create">
           <label>Lots<input type="number" min="0.001" step="0.001" value={journalLots} onChange={e=>setJournalLots(Number(e.target.value))}/></label>
-          <button className="action-btn" onClick={addCurrentPlanToJournal} disabled={!plan||!['BUY','SELL'].includes(decision.decision)}>Log current 1H plan</button>
+          <button className="action-btn" onClick={addCurrentPlanToJournal} disabled={!plan||!['BUY','SELL'].includes(decision.decision)||report?.risk_management?.approved_for_alert!==true}>Log current 1H plan</button>
         </div>
         {closingTrade&&<div className="journal-close">
           <b>Close {closingTrade.direction} trade</b>
@@ -537,8 +538,41 @@ export default function App(){
           {!report&&<div className="empty-state"><AlertTriangle size={22}/><b>Analysis চালালে জোন দেখা যাবে</b><span>4H macro, 1H primary এবং 15M setup থেকে candle-derived FVG ও Order Block zone তৈরি হবে।</span></div>}
           {report&&!['4h','1h','15m'].some(frame=>(report?.timeframes?.[frame]?.smc?.zones||[]).length>0)&&<div className="empty-state"><AlertTriangle size={22}/><b>কোনো confirmed zone নেই</b><span>পর্যাপ্ত valid candle বা confirmed structure না থাকলে জোন দেখানো হবে না।</span></div>}
         </div><small className="zone-disclaimer">জোনগুলো OHLCV candle-derived proxy; আসল institutional pending orders নয়। শুধু ACTIVE জোন চার্টে shaded overlay হিসেবে দেখানো হয়।</small></article>
+      <article className="card"><div className="section-head"><div><span className="eyebrow">LIQUIDITY INTELLIGENCE · OHLCV ESTIMATE</span><h2>Institutional Footprint</h2></div><Waves size={19}/></div>
+        {(()=>{
+          const liq=report?.timeframes?.['1h']?.liquidity||{};
+          const activity=liq.activity_proxies||{};
+          const sweep=liq.liquidity_sweep||{};
+          const score=liq.institutional_activity_score||{};
+          const book=liq.order_book||{};
+          const levels=liq.liquidity_heatmap?.levels||[];
+          return <div className="liquidity-content">
+            <div className="liquidity-score"><span>Activity proxy</span><b>{score.score??'—'} / 100</b><small>{score.confidence||'No sample'}</small></div>
+            <div className="liquidity-metrics">
+              <span>Relative volume <b>{activity.relative_volume??'—'}x</b></span>
+              <span>Estimated delta <b>{activity.estimated_delta??'—'}</b></span>
+              <span>Estimated CVD (20) <b>{activity.estimated_cvd_20_bars??'—'}</b></span>
+              <span>Unusual volume <b>{activity.unusual_volume?'YES':'NO DATA'}</b></span>
+            </div>
+            <div className="liquidity-sweeps">
+              <span className={sweep.buy_side_sweep_and_reclaim?'sweep-hit':''}>Buy-side sweep {sweep.buy_side_sweep_and_reclaim?'Detected':'—'}</span>
+              <span className={sweep.sell_side_sweep_and_reclaim?'sweep-hit':''}>Sell-side sweep {sweep.sell_side_sweep_and_reclaim?'Detected':'—'}</span>
+            </div>
+            <div className="phase3-list">
+              {levels.slice(-6).map((level,i)=><div className="phase3-row" key={level.side+'-'+i}>
+                <b className={level.side==='buy_side'?'positive':'negative'}>{level.side==='buy_side'?'BUY-SIDE POOL':'SELL-SIDE POOL'} · {level.strength}</b>
+                <span>{Number(level.price).toFixed(2)} · {level.touches} pivot touches</span>
+              </div>)}
+              {!levels.length&&<div className="phase3-empty">পর্যাপ্ত confirmed swing touch না থাকায় liquidity cluster তৈরি হয়নি।</div>}
+            </div>
+            <small className="zone-disclaimer">{book.status==='not_connected'?'Live exchange order book / MBO: not connected. ':''}Delta/CVD এবং activity score candle-close-location proxy, প্রকৃত bid/ask flow বা named institutional order নয়।</small>
+          </div>;
+        })()}
+      </article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
-        <div className="empty-state"><Radio size={22}/><b>{config?.live_data?'MT5 Bridge Connected':'Live feed not connected'}</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Backtest-এ spread, commission ও slippage assumptions দেওয়া যায়; broker-এর আসল fee schedule এখনও যাচাই করা হয়নি.</span></div></article>
+        <div className="empty-state"><Radio size={22}/><b>{config?.live_data?'MT5 Bridge Connected':'Live feed not connected'}</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Backtest-এ spread, commission ও slippage assumptions দেওয়া যায়; broker-এর আসল fee schedule এখনও যাচাই করা হয়নি.</span></div>
+        <div className="feed-health-list">{['4h','1h','15m'].map(tf=>{const health=config?.timeframe_health?.[tf];return <div key={tf}><b>{tf.toUpperCase()}</b><span className={health?.fresh?'healthy':'unhealthy'}>{health?.fresh?'FRESH':'STALE / NOT CONNECTED'}</span><small>{health?.last_candle_close_age_seconds!=null?Number(health.last_candle_close_age_seconds).toFixed(0)+'s since close':health?.reason||'No authenticated MT5 candle feed'}</small></div>})}</div>
+      </article>
     </section>
     <footer><span><Clock3 size={13}/> BUILD 0.5.0 · RISK & ALERTS · 1H PRIMARY</span><span>Closed-candle analysis only · No broker orders are placed</span></footer>
   </main>;
