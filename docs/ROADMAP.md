@@ -8,7 +8,7 @@ Last reconciled: 2026-11-03
 - [x] CSV import from the dashboard; no synthetic/demo prices are fabricated.
 - [x] Authenticated MT5 EA candle bridge for closed 4H, 1H, 15M and 5M candles.
 - [x] MT5 Bid/Ask quote bridge with actual last-tick timestamp.
-- [x] Server freshness checks: recent candle ingestion plus actual quote tick age; configurable `MAX_SPREAD_POINTS` hard gate.
+- [x] Server freshness checks: each required candle timeframe must be recently ingested and the actual broker tick timestamp must be recent and non-future; configurable `MAX_SPREAD_POINTS` hard gate.\n- [x] Dashboard live badge and quote API now use the same server-side candle/tick freshness rules; client-supplied freshness flags cannot open the trade gate.
 - [x] MT5 setup instructions and Docker environment template.
 - [ ] User must configure a private server token and install/compile the EA in MT5 desktop or VPS.
 - [ ] Verify broker symbol suffix, server timezone, candle boundaries, session gaps and volume semantics with the user's real feed.
@@ -49,7 +49,7 @@ Last reconciled: 2026-11-03
 - [x] Research-only 1H Alpha flip replay with next-bar entry, partial targets and conservative stop-first same-bar handling.
 - [x] Editable spread, slippage and commission assumptions in the research replay.
 - [x] First causal 4H/1H/15M/optional-5M Gold Report replay endpoint and dashboard UI.
-- [x] MTF replay aligns only fully closed bars available at each 1H decision close to reduce future leakage.
+- [x] MTF replay aligns only fully closed bars available at each 1H decision close to reduce future leakage.\n- [x] MTF replay excludes currently forming/future candles before simulation and reports exclusion counts.
 - [ ] Validate MTF replay against TradingView golden fixtures and independently inspect every time-alignment edge case.
 - [ ] Calibrate entry zone/ATR/stop/targets; current plan is an uncalibrated research proposal.
 - [ ] Walk-forward, out-of-sample and anti-repainting validation.
@@ -60,7 +60,7 @@ Last reconciled: 2026-11-03
 ## E. Packaging and operations
 
 - [x] PWA manifest, mobile metadata, app icon, service-worker registration and offline app-shell cache.
-- [x] Docker API/web images, Docker Compose, environment template and deployment guide.
+- [x] Docker API/web images, Docker Compose, environment template and deployment guide.\n- [x] Compose waits for the API health check before starting the web service; CI validates Compose configuration and builds both images.
 - [x] GitHub Actions backend tests, frontend build and Docker image-build workflows.
 - [ ] Verify the PWA install manually on the user's Android device over HTTPS.
 - [ ] Deploy to a real VPS/host with DNS, TLS, secret management, monitoring, backups and log retention.
