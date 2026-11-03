@@ -1,0 +1,43 @@
+name: Phase 2.6 paper-forward audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      events_path:
+        description: "Repository path to JSONL of timestamped closed 1H decision/candle/cost events"
+        required: true
+        default: "data/phase2/paper_forward_events.jsonl"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  paper-forward-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify event file exists
+        run: test -s "${{ inputs.events_path }}"
+      - name: Run deterministic paper-forward monitor
+        run: |
+          python -m scripts.paper_forward_monitor \
+            --input "${{ inputs.events_path }}" \
+            --ledger reports/phase2/paper-trades.json \
+            --audit reports/phase2/paper-forward-audit.jsonl
+      - name: Upload paper ledger and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-paper-forward-${{ github.run_number }}
+          path: |
+            reports/phase2/paper-trades.json
+            reports/phase2/paper-trades.csv
+            reports/phase2/paper-forward-audit.jsonl
+            reports/phase2/paper-forward-audit.summary.json
+          if-no-files-found: warn
+          retention-days: 90

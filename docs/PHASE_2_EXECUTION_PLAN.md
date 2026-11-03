@@ -71,10 +71,18 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 P2.5 implementation status: code and unit-test scope implemented; broker-specific empirical acceptance remains pending until the evidence above is reviewed.
 
 ### P2.6 — Forward/paper validation and release gate
-- [ ] Run a logged paper-forward period after historical gates pass.
-- [ ] Compare live decisions with subsequent closed candles; record missed/duplicate/invalidated signals.
-- [ ] Require stable data, no look-ahead, acceptable OOS robustness and documented risk before any later release decision.
-- [ ] No broker order execution in Phase 2.
+- [x] Add an offline closed-1H-candle paper-forward monitor with chronological/unique candle checks, decision-time ordering, OHLC validation and explicit cost inputs (scripts/paper_forward_monitor.py).
+- [x] Record per-event outcomes and summary counts for opened/closed trades, WAIT decisions, spread-gate waits and rejected events.
+- [x] Harden the paper ledger: spread cap fails closed for new entries, existing open trades continue to be managed, commission is deducted per side, and corrupt ledgers are not silently reset by the monitor.
+- [x] Add unit tests for closed-candle enforcement, chronological input, spread gating, existing-trade management and corrupt-ledger refusal.
+- [x] Add a manual GitHub Actions workflow to run and archive paper ledger/audit artifacts; document the JSONL event contract and operator procedure.
+- [ ] Collect a continuous paper-forward period using a verified, stable feed only after P2.1–P2.5 historical/broker gates pass.
+- [ ] Reconcile each decision against subsequent closed candles; classify missed, duplicate, stale, invalidated and rejected signals.
+- [ ] Review paper-trade ledger, realistic XM360 costs, drawdown/risk limits, and out-of-sample robustness; predefine acceptance thresholds before examining outcomes.
+- [ ] Obtain final release approval only after all empirical evidence and risk controls pass.
+- [x] Keep broker order execution disabled throughout Phase 2.
+
+P2.6 implementation status: monitor, audit format, workflow and unit-test scope implemented; continuous forward evidence and release acceptance remain pending.
 
 ## Known blockers / external dependencies
 - No confirmed live MT5 broker feed is currently connected; user has no desktop PC for MetaTrader Desktop testing.
