@@ -16,7 +16,9 @@ def analyze_unified_decision(p: dict[str,Any]) -> dict[str,Any]:
     elif h4.get("confirmed") is not True: r.append("FOUR_HOUR_BAR_NOT_CONFIRMED")
     elif macro and side and macro!=side: r.append("FOUR_HOUR_MACRO_CONFLICT")
     s1=p.get("1h_structure")
-    if isinstance(s1,dict) and s1.get("status")=="ok" and _direction(s1) and side and _direction(s1)!=side: r.append("ONE_HOUR_STRUCTURE_CONFLICT")
+    if isinstance(s1,dict) and s1.get("status")=="ok":
+        if s1.get("direction")=="ambiguous": r.append("ONE_HOUR_STRUCTURE_AMBIGUOUS")
+        elif _direction(s1) and side and _direction(s1)!=side: r.append("ONE_HOUR_STRUCTURE_CONFLICT")
     s15=p.get("15m_setup"); d15=_direction(s15)
     if not isinstance(s15,dict) or s15.get("status")!="ok": r.append("FIFTEEN_MINUTE_SETUP_NOT_READY")
     elif s15.get("confirmed") is not True: r.append("FIFTEEN_MINUTE_SETUP_NOT_CONFIRMED")
