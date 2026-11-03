@@ -36,8 +36,9 @@ jobs:
       - name: Download Dukascopy XAUUSD M1 BID and derive all timeframes
         env:
           FROM_DATE: ${{ inputs.from_date || '2020-01-01' }}
-          TO_DATE: ${{ inputs.to_date || github.event.repository.updated_at || '2026-11-03' }}
+          TO_DATE: ${{ inputs.to_date || '' }}
         run: |
+          TO_DATE="${TO_DATE:-$(date -u +%F)}"
           python scripts/download_xauusd_same_feed.py \
             --from-date "$FROM_DATE" \
             --to-date "$TO_DATE" \
