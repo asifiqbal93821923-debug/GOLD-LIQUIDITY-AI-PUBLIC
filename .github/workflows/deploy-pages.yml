@@ -31,7 +31,7 @@ jobs:
           node-version: 20
       - name: Install dependencies
         working-directory: web
-        run: npm ci
+        run: npm install
       - name: Build static PWA
         working-directory: web
         run: npm run build
