@@ -10,7 +10,7 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.4.0 + 1H-primary analysis + historical import
+## Current status — Foundation 0.5.0 + 1H-primary analysis + risk controls + alerts + journal
 - React + Vite responsive frontend and Lightweight Charts surface.
 - FastAPI backend with health/configuration, SQLite fallback and Neon/PostgreSQL historical-candle persistence support, plus analysis endpoints.
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
@@ -23,6 +23,10 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - Dockerfiles, Compose configuration and CI image-build checks for local/VPS deployment.
 - Research-only 1H Alpha flip replay and causal multi-timeframe 4H/1H/15M/optional-5M Gold Report replay endpoints, with next-bar execution, conservative stop-first same-bar handling, partial TP exits and editable spread/slippage/commission assumptions.\n- Full MTF replay aligns only fully closed higher/lower timeframe candles to each 1H signal close to reduce future leakage; it remains an uncalibrated adapter-based research backtest.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
+- Persistent risk profile with daily loss, trade-count, open-trade, cooldown and reward/risk gates.
+- Broker-contract-aware position-size estimate when account balance and contract size are configured.
+- Confirmed 1H signal alerts with deduplication and optional browser notifications.
+- Persistent manual trade journal with open/close records and realized PnL.
 
 **Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, full multi-timeframe backtesting/walk-forward validation, production host/DNS/TLS setup and Android APK packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
 
@@ -50,6 +54,12 @@ The Vite development server proxies `/api` to the local FastAPI server.
 
 ### Import historical candles
 Use the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. For MT5 desktop streaming, see [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and compile [GoldLiquidityBridge.mq5](mt5/GoldLiquidityBridge.mq5). Set `MARKET_INGEST_TOKEN` on the server and the same token in EA inputs; do not commit the token. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`. Research endpoints: `POST /api/backtest/alpha-1h` tests only Alpha 1H flips; `POST /api/backtest/gold-mtf` replays the full 4H/1H/15M/optional-5M confluence using causal closed-bar alignment. Neither is certified Pine parity or a profitability guarantee.
+
+## Phase 3 controls
+
+Risk settings, confirmed alerts and journal records are available through `/api/risk/settings`, `/api/alerts` and `/api/journal`. Journal entries are manual. Position-size estimates require the account balance and exact broker contract size; verify the broker specification before use. The application does not send orders.
+
+See [Phase 3 Product Release](docs/PHASE_3_PRODUCT_RELEASE.md) for details.
 
 ## Security and trading safeguards
 - Store secrets in server environment variables only.
