@@ -153,10 +153,23 @@ jobs:
             --timeframe 1h $SETTINGS \
             --output reports/phase2/python-signals-1h.csv
           if [ -s data/phase2/pine_reference_1h.csv ]; then
+            test -s data/phase2/pine-reference-meta.json || (echo "Pine reference CSV supplied without exact metadata manifest; refusing parity PASS." && exit 1)
+            test -s data/phase2/alpha-settings.json || (echo "Pine parity requires explicit alpha-settings.json; do not infer default settings." && exit 1)
+            python -m scripts.build_pine_candidate_metadata \
+              --reference-meta data/phase2/pine-reference-meta.json \
+              --python-settings data/phase2/alpha-settings.json \
+              --source "${{ inputs.source }}" \
+              --symbol "${{ inputs.symbol }}" \
+              --output reports/phase2/python-candidate-meta.json
             python scripts/compare_tradingview_signals.py \
               --reference data/phase2/pine_reference_1h.csv \
               --candidate reports/phase2/python-signals-1h.csv \
+              --signal-column phase2_signal \
+              --reference-meta data/phase2/pine-reference-meta.json \
+              --candidate-meta reports/phase2/python-candidate-meta.json \
               --output reports/phase2/tradingview-parity.json
+          else
+            echo "No TradingView golden event CSV supplied; empirical P2.2 parity remains pending."
           fi
       - name: Upload all reports and provenance manifest
         if: always()
@@ -166,6 +179,8 @@ jobs:
           path: |
             reports/phase2/
             data/phase2/pine_reference_1h.csv
+            data/phase2/pine-reference-meta.json
+            data/phase2/alpha-settings.json
             reports/phase2/xm360-quote-session-audit.json
           if-no-files-found: warn
           retention-days: 30

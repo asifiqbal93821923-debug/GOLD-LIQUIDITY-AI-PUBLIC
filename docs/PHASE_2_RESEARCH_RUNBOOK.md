@@ -13,10 +13,16 @@ Put the files in data/phase2 using these exact names:
 - xauusd_15m.csv
 - xauusd_5m.csv (optional)
 - pine_reference_1h.csv (optional; see step 2)
+- pine-reference-meta.json (required whenever pine_reference_1h.csv is supplied)
+- alpha-settings.json (required whenever pine_reference_1h.csv is supplied)
 
 Required candle columns: time,open,high,low,close. Volume is optional. Timestamps must be UTC Unix seconds/milliseconds or timezone-aware ISO-8601 strings. Export fully closed bars only. Do not mix OANDA:XAUUSD, TVC:GOLD, COMEX futures, broker MT5, or other sources. They are not interchangeable data feeds.
 
 Aim for aligned overlapping history of approximately at least 250 x 4H bars, 1,000 x 1H bars and 4,000 x 15M bars over the same calendar interval. The importer computes the actual 60/20/20 partitions and requires at least 50 fully closed bars in every required timeframe in each partition; it refuses the dataset otherwise. More history spanning multiple volatility regimes is preferred. Do not exceed 6,000 1H bars for one MTF replay input. These are technical floors, not statistically sufficient sample sizes.
+
+### Optional independent Dukascopy research dataset
+
+The separate action named **Download independent Dukascopy XAUUSD research history** downloads Dukascopy BID M1 candles and aggregates them into 4H/1H/15M files under data/dukascopy_research/. Its artifact is explicitly labelled independent-provider research. Do not copy those files into data/phase2/ or describe them as the user's TradingView feed. They do not prove chart-feed identity, XM360 Ask/Bid execution prices, spread, slippage or commission. They can only support separately labelled Dukascopy research unless the exact TradingView source/ticker is independently verified to match.
 
 ## 2. Pine reference event export
 
@@ -26,7 +32,25 @@ For the Alpha Signal Engine Pro Pine source that this repository ports, add a nu
 
 Export chart data again and save the file as data/phase2/pine_reference_1h.csv. Keep the plot header phase2_signal. Values map to 1=BUY, -1=SELL, 0=WAIT.
 
-Also add data/phase2/alpha-settings.json if the Pine engine inputs differ from the Python defaults. It must be a JSON object with the exact exposed Alpha input names and values. Without the exact source code and inputs, a parity percentage would be meaningless. This Alpha port is not the user's separate PRO XAU V2.0 strategy or a different SMC indicator.
+Also add data/phase2/alpha-settings.json containing the exact exposed Alpha input names and values used by the Python port. For strict parity, this file is required even when those values are believed to be defaults. Add data/phase2/pine-reference-meta.json describing the exact TradingView reference. Required JSON keys:
+
+    {
+      "script_title": "<exact Pine script title>",
+      "pine_version": "<exact Pine version>",
+      "symbol": "<exact TradingView ticker>",
+      "provider": "<exact TradingView chart provider>",
+      "timezone": "UTC",
+      "timeframe": "60",
+      "bar_timestamp": "bar_open_unix_seconds",
+      "bar_confirmation": "barstate.isconfirmed",
+      "settings": {
+        "<exact Pine input name>": "<exact exported value>"
+      }
+    }
+
+The settings object must match alpha-settings.json exactly. The workflow checks provider, symbol, 1H timeframe, UTC, bar-open timestamp semantics, confirmed-bar mode and settings before it builds the Python candidate manifest. It then compares every event timestamp and BUY/SELL/WAIT value. A metadata match is not algorithmic parity; only the per-bar comparison report can establish parity for the tested period and settings.
+
+The current workflow compares the Alpha Python signal engine only. The supplied SMC, WSB and AI Channels adapters, plus the separate PRO XAU V2.0 and Advanced SMC MTF Pro scripts, require their own complete Pine sources, exact settings and corresponding output/export adapters before they can be parity-certified. Do not infer those results from Alpha parity.
 
 ## 3. Supply broker execution costs
 
@@ -43,7 +67,7 @@ Open the repository's Actions tab, choose "Phase 2 same-feed research", click "R
 - separate false-breakout, liquidity-sweep and retest event/outcome report
 - Python 1H signal CSV and optional Pine/Python event parity report
 
-Download the workflow artifact after the run completes. A workflow that stops at the CSV gate, data-quality gate or an insufficient-history message has not completed empirical Phase 2.
+Download the workflow artifact after the run completes. A workflow that stops at the CSV gate, data-quality gate or an insufficient-history message has not completed empirical Phase 2. If a Pine event CSV is present without both the exact metadata manifest and settings file, the parity step fails closed rather than reporting PASS.
 
 ## 5. Forward paper trading
 

@@ -20,25 +20,29 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 ## Phase 2 work packages
 
 ### P2.1 — Data and replay correctness
-- [x] Same-feed TradingView CSV import/preparation pipeline exists (`scripts/prepare_xauusd_dataset.py`); it rejects naive local timestamps and forming/future bars, checks duplicate timestamps, records provenance, and requires minimum history for chronological partitions.
-- [x] Historical candle audit API added at `POST /api/market/history/audit`; reports coverage, closed/forming/future rows, duplicates, out-of-order rows, malformed OHLCV and gaps without synthesizing candles.
+- [x] Same-feed TradingView CSV import/preparation pipeline exists (scripts/prepare_xauusd_dataset.py); it rejects naive local timestamps and forming/future bars, checks duplicate timestamps, records provenance, and requires minimum history for chronological partitions.
+- [x] Historical candle audit API added at POST /api/market/history/audit; reports coverage, closed/forming/future rows, duplicates, out-of-order rows, malformed OHLCV and gaps without synthesizing candles.
 - [x] Deterministic tests cover duplicate/out-of-order rows, gaps, invalid OHLC, closed/forming/future classification, and exact MTF close-boundary behavior.
 - [x] Replay code and tests enforce fully closed 4H/1H/15M/optional-5M bars at each 1H decision close.
 - [ ] Import a sufficiently deep, timestamped XAUUSD OHLC dataset from one verified provider/feed for 4H, 1H and 15M; 5M is optional.
 - [ ] Verify chart ticker/provider, timezone, broker contract/point size and volume semantics against source documentation.
 - [ ] Run the quality audit against the real imported dataset and review session/weekend gaps before replay.
 
+The optional Dukascopy downloader is kept separate under data/dukascopy_research/ and marks its manifest as independent-provider BID research. It is not copied into data/phase2/ and does not satisfy the user's TradingView same-feed or XM360 execution-evidence gates by default.
+
 ### P2.2 — Pine reference parity
 - [x] Hardened the parity CLI so final acceptance requires exact TradingView/Python metadata, a non-empty settings manifest, exact per-bar timestamps/signals, and at least one comparable value for each requested numeric series; added regression tests for missing metadata and empty numeric series.
+- [x] Wired the Phase 2 research workflow to require exact Pine metadata and explicit Alpha settings whenever a TradingView golden event CSV is present; candidate metadata preflight checks provider, symbol, 1H, UTC, bar-open, confirmed-bar and settings equality before comparison.
 - [ ] Export TradingView golden fixtures from the exact supplied Pine versions and settings.
-- [ ] Compare Alpha, SMC, WSB and AI Channels outputs candle-by-candle.
+- [ ] Compare Alpha outputs candle-by-candle. The workflow currently covers the Alpha Python signal engine only.
+- [ ] Build and validate separate full-source ports/adapters and golden fixtures for SMC, WSB, AI Channels, and the distinct PRO XAU V2.0 / Advanced SMC MTF Pro scripts.
 - [ ] Fix and document mismatches; keep source-parity and corrected variants distinct.
 - [ ] Do not claim parity until fixture comparisons pass.
 
-P2.2 implementation status: comparator and software guard are implemented and covered by unit tests. **Empirical Pine parity is still pending**; no P2.2 engine is accepted until exact TradingView source/settings and closed-bar golden exports are compared candle-by-candle.
+P2.2 implementation status: comparator, metadata preflight and fail-closed workflow wiring are implemented; empirical Pine parity is still pending until exact source/settings and same-feed confirmed-bar golden exports are compared candle-by-candle.
 
 ### P2.3 — Trade-plan calibration
-- [x] Dedicated 1H calibration runner exists (`scripts/calibrate_trade_plan.py`) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
+- [x] Dedicated 1H calibration runner exists (scripts/calibrate_trade_plan.py) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
 - [x] Calibration is separate from signal generation and uses the causal MTF replay; spread, slippage, commission and point-size assumptions are explicit.
 - [x] Calibration report now includes trade count, skipped signals/rate, losing trades, expectancy in R, average R, profit factor, net PnL, max drawdown, sample-size warning, chronological bar counts and split boundaries.
 - [x] Unit test added for the new calibration diagnostics.
@@ -49,7 +53,7 @@ P2.2 implementation status: comparator and software guard are implemented and co
 
 ### P2.4 — Out-of-sample and walk-forward
 - [ ] Freeze a final chronological untouched holdout period before any tuning; this remains an empirical acceptance gate.
-- [x] Implement rolling/anchored walk-forward folds with explicit training and disjoint test boundaries (`scripts/rolling_walk_forward_validation.py`).
+- [x] Implement rolling/anchored walk-forward folds with explicit training and disjoint test boundaries (scripts/rolling_walk_forward_validation.py).
 - [x] Pass fixed execution costs/settings unchanged to each fold; no fold test is used to select parameters.
 - [x] Report fold-level metrics, zero/losing folds, aggregate OOS trade count/PnL and leakage-control assertions.
 - [x] Unit tests cover short-history refusal and invalid fold configurations.

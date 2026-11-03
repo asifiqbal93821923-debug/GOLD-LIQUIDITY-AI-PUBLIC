@@ -71,3 +71,12 @@ Software implementation and automated CI/regression checks are complete. MTF ali
 - [ ] **Continuous forward paper-trading period has not started or completed.** The offline ledger exists, but continuous observation requires a running feed/receiver, persistent ledger storage and elapsed market sessions. No broker orders are sent.
 
 **Phase 2 acceptance rule:** software tools and tests being present is not equivalent to historical evidence. Keep Phase 2 open until the same-feed dataset, Pine parity report, calibrated trade-plan report, costed walk-forward/OOS report, sealed-test report and a pre-defined forward paper-trading sample have all been saved and reviewed.
+
+
+## Evidence-gate integrity correction (2026-11-03)
+
+- [x] Fixed the P2.2 workflow integration: when a TradingView reference event CSV is supplied, exact reference metadata and an explicit Alpha settings manifest are now mandatory; provider, symbol, timeframe, UTC, bar-open semantics, confirmed-bar mode and exact settings are validated before the comparison CLI runs.
+- [x] Added regression tests for Pine candidate metadata preflight, including settings/source mismatches and non-1H/unconfirmed/local-time metadata.
+- [x] Isolated the optional Dukascopy BID download to data/dukascopy_research/ with an independent-provider manifest; it no longer populates the TradingView same-feed input directory.
+- [ ] Run CI for this correction and inspect its result before marking the implementation correction CI-verified.
+- [ ] Empirical Phase 2 gates remain open: verified TradingView history and golden fixtures, XM360 contract/quote/fill evidence, real calibration and walk-forward reports, and continuous paper-forward observation are not present yet.
