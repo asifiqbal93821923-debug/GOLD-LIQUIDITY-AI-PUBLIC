@@ -1,0 +1,120 @@
+name: Phase 2 same-feed research
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Exact TradingView provider/feed label (must match every CSV)"
+        required: true
+        type: string
+      symbol:
+        description: "Exact TradingView ticker, e.g. OANDA:XAUUSD"
+        required: true
+        type: string
+      spread_points:
+        description: "Observed target-broker spread in points"
+        required: true
+        type: string
+      slippage_points:
+        description: "Conservative slippage in points"
+        required: true
+        type: string
+      commission_points_per_side:
+        description: "Commission converted to price points per side"
+        required: true
+        default: "0"
+        type: string
+      point_size:
+        description: "Price units per broker point (verify contract specification)"
+        required: true
+        default: "0.01"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        run: python -m pip install -r server/requirements.txt
+      - name: Check same-feed CSV inputs
+        run: |
+          test -s data/phase2/xauusd_4h.csv
+          test -s data/phase2/xauusd_1h.csv
+          test -s data/phase2/xauusd_15m.csv
+      - name: Validate and combine the same-feed exports
+        run: |
+          EXTRA=""
+          if [ -s data/phase2/xauusd_5m.csv ]; then EXTRA="--5m data/phase2/xauusd_5m.csv"; fi
+          python scripts/prepare_xauusd_dataset.py \
+            --source "\${{ inputs.source }}" \
+            --symbol "\${{ inputs.symbol }}" \
+            --4h data/phase2/xauusd_4h.csv \
+            --1h data/phase2/xauusd_1h.csv \
+            --15m data/phase2/xauusd_15m.csv \
+            $EXTRA \
+            --output reports/phase2/xauusd_mtf_ohlcv.json
+      - name: Parameter optimizer and sealed test
+        run: |
+          python scripts/optimize_alpha_settings.py \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --candidates 100 \
+            --spread-points "\${{ inputs.spread_points }}" \
+            --slippage-points "\${{ inputs.slippage_points }}" \
+            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
+            --point-size "\${{ inputs.point_size }}" \
+            --output reports/phase2/alpha-optimizer.json
+      - name: 1H entry, stop-loss and target calibration
+        run: |
+          python scripts/calibrate_trade_plan.py \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --spread-points "\${{ inputs.spread_points }}" \
+            --slippage-points "\${{ inputs.slippage_points }}" \
+            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
+            --point-size "\${{ inputs.point_size }}" \
+            --output reports/phase2/trade-plan-calibration.json
+      - name: Costed walk-forward and out-of-sample test
+        run: |
+          python scripts/walk_forward_validation.py \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --train-fraction 0.70 \
+            --spread-points "\${{ inputs.spread_points }}" \
+            --slippage-points "\${{ inputs.slippage_points }}" \
+            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
+            --point-size "\${{ inputs.point_size }}" \
+            --output reports/phase2/walk-forward.json
+      - name: False-breakout, sweep and retest diagnostics
+        run: |
+          python scripts/analyze_price_action_setups.py \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --output reports/phase2/price-action-setups.json
+      - name: Generate Python reference and compare Pine export when supplied
+        run: |
+          python scripts/export_python_signal_events.py \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --timeframe 1h \
+            --output reports/phase2/python-signals-1h.csv
+          if [ -s data/phase2/pine_reference_1h.csv ]; then
+            python scripts/compare_tradingview_signals.py \
+              --reference data/phase2/pine_reference_1h.csv \
+              --candidate reports/phase2/python-signals-1h.csv \
+              --signal-column phase2_signal \
+              --output reports/phase2/tradingview-parity.json
+          fi
+      - name: Upload all reports and provenance manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-research-\${{ github.run_number }}
+          path: |
+            reports/phase2/
+            data/phase2/pine_reference_1h.csv
+          if-no-files-found: warn
+          retention-days: 30
