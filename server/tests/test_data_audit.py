@@ -42,6 +42,12 @@ class HistoricalDataAuditTests(unittest.TestCase):
         self.assertEqual(out["future_rows"],1)
         self.assertEqual(out["closed_rows"],0)
 
+    def test_timezone_aware_iso_timestamps_are_supported(self):
+        rows=[{"time":"2027-01-15T00:00:00Z","open":2300,"high":2302,"low":2298,"close":2301}]
+        out=audit_candle_history(rows,"1h",1_800_000_000)
+        self.assertEqual(out["valid_unique_rows"],1)
+        self.assertEqual(out["status"],"ok")
+
     def test_unsupported_timeframe_is_rejected(self):
         self.assertEqual(audit_candle_history([],"3m",BASE)["status"],"unsupported_timeframe")
 
