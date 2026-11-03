@@ -32,6 +32,34 @@ app.add_middleware(CORSMiddleware,
 STORE = CandleStore(os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
 TIMEFRAMES = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1D"}
 
+def _fresh_ingest(tf: str, now: datetime | None=None) -> bool:
+    now=now or datetime.now(timezone.utc)
+    ingest=STORE.latest_ingest("XAUUSD",tf)
+    if not ingest or ingest.get("source")!="mt5_bridge": return False
+    try:
+        age=(now-datetime.fromisoformat(ingest["updated_at"])).total_seconds()
+        return 0<=age<=180
+    except (TypeError,ValueError):
+        return False
+
+def _quote_status(now: datetime | None=None) -> dict:
+    now=now or datetime.now(timezone.utc)
+    quote=STORE.latest_quote("XAUUSD")
+    if not quote or quote.get("source")!="mt5_bridge":
+        return {"fresh":False,"acceptable":False,"reason":"NO_AUTHENTICATED_MT5_QUOTE"}
+    try:
+        receive_age=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()
+        tick_age=now.timestamp()-float(quote["quote_time"])
+        fresh=bool(0<=receive_age<=180 and -5<=tick_age<=180)
+        threshold=float(os.getenv("MAX_SPREAD_POINTS","0"))
+        acceptable=bool(fresh and threshold>0 and float(quote["spread_points"])<=threshold)
+        return {"fresh":fresh,"acceptable":acceptable,"spread_points":round(float(quote["spread_points"]),2),
+          "max_spread_points":threshold or None,"quote_age_seconds":round(tick_age,1),
+          "reason":None if acceptable else "STALE_QUOTE_OR_SPREAD_LIMIT_CLOSED"}
+    except (TypeError,ValueError):
+        return {"fresh":False,"acceptable":False,"reason":"INVALID_QUOTE_TIMESTAMP_OR_SPREAD"}
+
+
 class Candle(BaseModel):
     time: str | int | float
     symbol: str = "XAUUSD"
@@ -84,20 +112,18 @@ def health():
 @app.get("/api/config/status")
 def config_status():
     provider=os.getenv("MARKET_DATA_PROVIDER","not_configured")
+    now=datetime.now(timezone.utc)
+    bars={tf:_fresh_ingest(tf,now) for tf in ("4h","1h","15m")}
+    quote=_quote_status(now)
+    live=all(bars.values()) and quote["fresh"]
     latest=STORE.latest_ingest("XAUUSD")
-    live=False
-    if latest and latest.get("source")=="mt5_bridge":
-        try:
-            updated=datetime.fromisoformat(latest["updated_at"])
-            live=(datetime.now(timezone.utc)-updated).total_seconds()<=180
-        except (TypeError,ValueError):
-            live=False
     return {"market":"XAUUSD","provider":provider,
       "credentials_present":bool(os.getenv("MARKET_DATA_API_KEY")),
       "bridge_token_configured":bool(os.getenv("MARKET_INGEST_TOKEN")),
-      "live_data":live,"last_ingest":latest,"historical_store":"sqlite",
-      "message":"MT5 bridge is sending recent candles." if live else "Historical imports are available; live MT5 bridge is not currently sending fresh candles.",
-      "checked_at":datetime.now(timezone.utc).isoformat()}
+      "live_data":live,"fresh_closed_timeframes":bars,"quote":quote,
+      "spread_acceptable":quote["acceptable"],"last_ingest":latest,"historical_store":"sqlite",
+      "message":"Fresh MT5 candles and broker quote are being received." if live else "Historical data is available; one or more MT5 candle timeframes or the actual broker tick is stale/missing.",
+      "checked_at":now.isoformat()}
 
 @app.get("/api/market/candles")
 def get_candles(timeframe: str="1h", limit: int=1000, symbol: str="XAUUSD"):
@@ -169,20 +195,16 @@ def mt5_quote_bridge(payload: QuoteBridgeRequest, x_bridge_token: str | None = H
 
 @app.get("/api/market/quote")
 def get_market_quote(symbol: str="XAUUSD"):
-    quote=STORE.latest_quote(symbol.upper())
-    if not quote: return {"status":"not_available","acceptable":False,"message":"No broker bid/ask quote received."}
-    fresh=False
-    try:
-        updated=datetime.fromisoformat(quote["updated_at"])
-        fresh=(datetime.now(timezone.utc)-updated).total_seconds()<=180
-    except (TypeError,ValueError): pass
-    try: threshold=float(os.getenv("MAX_SPREAD_POINTS","0"))
-    except ValueError: threshold=0.0
-    acceptable=bool(fresh and quote["source"]=="mt5_bridge" and threshold>0 and quote["spread_points"]<=threshold)
-    return {"status":"ok","symbol":symbol.upper(),"bid":quote["bid"],"ask":quote["ask"],
-      "spread_points":round(quote["spread_points"],2),"max_spread_points":threshold or None,
-      "fresh":fresh,"acceptable":acceptable,"source":quote["source"],"updated_at":quote["updated_at"],
-      "message":"Spread within configured limit." if acceptable else "Spread gate closed: quote stale or MAX_SPREAD_POINTS not configured/exceeded."}
+    if symbol.upper()!="XAUUSD":
+        return {"status":"not_available","acceptable":False,"message":"Only XAUUSD is enabled."}
+    quote=STORE.latest_quote("XAUUSD")
+    if not quote: return {"status":"not_available","acceptable":False,"fresh":False,"message":"No broker bid/ask quote received."}
+    state=_quote_status()
+    return {"status":"ok","symbol":"XAUUSD","bid":quote["bid"],"ask":quote["ask"],
+      "spread_points":state.get("spread_points"),"max_spread_points":state.get("max_spread_points"),
+      "fresh":state["fresh"],"acceptable":state["acceptable"],"quote_age_seconds":state.get("quote_age_seconds"),
+      "source":quote["source"],"updated_at":quote["updated_at"],
+      "message":"Spread within configured limit." if state["acceptable"] else "Spread gate closed: actual tick stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
 
 @app.post("/api/backtest/gold-mtf")
@@ -217,24 +239,6 @@ def gold_report_analysis(payload: GoldReportRequest):
       if tf in {"4h","1h","15m","5m"}}
     # Never trust browser-supplied freshness/spread booleans for the final trade gate.
     now=datetime.now(timezone.utc)
-    fresh=True
-    for tf in ("4h","1h","15m"):
-        ingest=STORE.latest_ingest("XAUUSD",tf)
-        try:
-            recent=bool(ingest and ingest.get("source")=="mt5_bridge" and
-                (now-datetime.fromisoformat(ingest["updated_at"])).total_seconds()<=180)
-        except (TypeError,ValueError):
-            recent=False
-        fresh=fresh and recent
-    quote=STORE.latest_quote("XAUUSD")
-    spread_ok=False
-    if quote and quote.get("source")=="mt5_bridge":
-        try:
-            quote_age=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()
-            tick_age=now.timestamp()-float(quote["quote_time"])
-            quote_recent=(0<=quote_age<=180 and -5<=tick_age<=180)
-            max_spread=float(os.getenv("MAX_SPREAD_POINTS","0"))
-            spread_ok=bool(quote_recent and max_spread>0 and quote["spread_points"]<=max_spread)
-        except (TypeError,ValueError):
-            spread_ok=False
+    fresh=all(_fresh_ingest(tf,now) for tf in ("4h","1h","15m"))
+    spread_ok=_quote_status(now)["acceptable"]
     return build_gold_report(timeframes,data_fresh=fresh,spread_acceptable=spread_ok)
