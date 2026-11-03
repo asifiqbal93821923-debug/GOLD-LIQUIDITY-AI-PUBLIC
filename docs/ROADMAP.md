@@ -35,7 +35,7 @@
 ## Phase 4 — Trade planning and validation
 - [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
 - [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
-- [ ] Add spread, commission, slippage and session sensitivity to reports.
+- [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.\n- [ ] Add commission, slippage and session sensitivity to reports.
 - [ ] Run historical replay, backtests, walk-forward tests and anti-repainting checks.
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
 
@@ -44,7 +44,7 @@
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
 - [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
 - [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.\n- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
-- [ ] PWA installation and offline-safe shell (market data remains online).
+- [x] Add PWA manifest, mobile metadata, icon, service-worker registration and offline app-shell cache (market data remains online; device install not yet manually verified).
 - [ ] Android packaging only after web core, feed and validation are stable.
 - [ ] Deployment, monitoring, secret management and operational documentation.
 
@@ -56,5 +56,5 @@
 - [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
 - [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
 - [x] Unified architecture and implementation status documented.
-- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code and setup guide are ready. Certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, deployment and Android package remain pending. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
+- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code, quote/spread gate and setup guide are ready. Commission/slippage modelling, Android APK, live MBO/CVD/OI and validated backtesting remain pending. Certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, deployment and Android package remain pending. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
