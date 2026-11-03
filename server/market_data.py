@@ -89,3 +89,9 @@ class CandleStore:
         with self._connect() as db:
             row=db.execute("SELECT COUNT(*) AS n FROM candles WHERE symbol=? AND timeframe=?",(symbol,timeframe)).fetchone()
         return int(row["n"])
+
+    def latest_ingest(self,symbol: str="XAUUSD") -> dict[str,Any] | None:
+        with self._connect() as db:
+            row=db.execute("""SELECT source,updated_at FROM candles WHERE symbol=?
+              ORDER BY updated_at DESC LIMIT 1""",(symbol,)).fetchone()
+        return dict(row) if row else None
