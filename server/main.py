@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import hmac
+import math
 from pydantic import BaseModel, Field
 from typing import Literal
 import os
@@ -144,7 +145,8 @@ def mt5_quote_bridge(payload: QuoteBridgeRequest, x_bridge_token: str | None = H
         raise HTTPException(503,"Server MT5 bridge token is not configured.")
     if not x_bridge_token or not hmac.compare_digest(x_bridge_token,expected):
         raise HTTPException(401,"Invalid bridge token.")
-    if payload.symbol.upper()!="XAUUSD" or payload.bid<=0 or payload.ask<payload.bid or payload.point<=0:
+    if (payload.symbol.upper()!="XAUUSD" or not all(math.isfinite(x) for x in (payload.bid,payload.ask,payload.point))
+        or payload.bid<=0 or payload.ask<payload.bid or payload.point<=0):
         raise HTTPException(422,"Invalid XAUUSD quote or point size.")
     try: quote_time=to_epoch_seconds(payload.time)
     except ValueError as exc: raise HTTPException(422,str(exc))
