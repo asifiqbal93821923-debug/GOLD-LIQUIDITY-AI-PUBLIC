@@ -21,7 +21,8 @@ class AlphaSignalTests(unittest.TestCase):
         self.assertIn(result["signal"],{"BUY","SELL","WAIT"})
         self.assertIn(result["direction"],{"bullish","bearish"})
         self.assertIn(result["regime"],{"flat","trending"})
-        self.assertIn("filters",result)\n        self.assertIsInstance(result["signal_history"],list)
+        self.assertIn("filters",result)
+        self.assertIsInstance(result["signal_history"],list)
 
     def test_short_history_is_explicit(self):
         result=analyze_alpha_signal(sample_candles(20))
