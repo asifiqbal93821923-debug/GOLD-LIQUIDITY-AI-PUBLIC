@@ -150,7 +150,7 @@ def main():
         rollover_start_utc=args.rollover_start_utc,
         rollover_end_utc=args.rollover_end_utc, minimum_samples=args.minimum_samples)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.output).write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+    Path(args.output).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"status": report["status"], "quote_count": report["quote_count"],
                       "provenance": report["provenance"]}, indent=2))
     if report["status"] != "ok":
