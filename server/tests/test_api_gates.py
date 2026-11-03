@@ -49,7 +49,7 @@ class ServerTradeGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store=CandleStore(str(Path(tmp)/"candles.db"))
             for tf in ("4h","1h","15m"):
-                store.upsert("XAUUSD",tf,sample(),"mt5_bridge")
+                store.upsert("XAUUSD",tf,sample(timeframe=tf),"mt5_bridge")
             store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,
                 int(datetime.now(timezone.utc).timestamp())+600,"mt5_bridge")
             with patch.object(api,"STORE",store), patch.dict(os.environ,{"MAX_SPREAD_POINTS":"20"}):
