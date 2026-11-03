@@ -34,10 +34,13 @@ jobs:
         with:
           python-version: "3.11"
       - name: Download Dukascopy XAUUSD M1 BID and derive all timeframes
+        env:
+          FROM_DATE: ${{ inputs.from_date || '2020-01-01' }}
+          TO_DATE: ${{ inputs.to_date || github.event.repository.updated_at || '2026-11-03' }}
         run: |
           python scripts/download_xauusd_same_feed.py \
-            --from-date "${{ inputs.from_date }}" \
-            --to-date "${{ inputs.to_date }}" \
+            --from-date "$FROM_DATE" \
+            --to-date "$TO_DATE" \
             --output-dir data/phase2 \
             --raw-dir data/raw
       - name: Audit all generated CSVs
