@@ -29,17 +29,17 @@
 
 ## Phase 3 — Chart and market structure
 - [x] Render imported historical OHLC candles on the chart for supported timeframes; live candles remain pending.
-- [ ] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
+- [x] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
 - [ ] Keep 1H/4H zones fixed when viewing 3m/5m charts; map by timestamps and price, not chart-local pivots.
 - [x] Add initial 1H swing high/low, FVG, OB-candidate and EQH/EQL price-line overlays to the main chart (candidate levels; full zone rendering/validation pending).
 - [ ] Add EQH/EQL, confirmed FVG, prior D/W/M levels and liquidity sweep estimates.
-- [ ] Keep all meaningful markings on the main candlestick chart; no separate lower pane.
+- [x] Keep initial 1H SMC markings on the main candlestick chart; no separate lower pane. Full shaded zones and all timeframe anchors remain pending.
 
 ## Phase 4 — Trade planning and validation
 - [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
 - [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
 - [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.
-- [ ] Add commission, slippage and session sensitivity to reports.
+- [x] Add editable spread, slippage and commission assumptions to the research-only 1H Alpha backtest UI/API.\n- [ ] Add multi-scenario cost and session sensitivity reports.
 - [x] Add a research-only 1H Alpha flip replay with next-bar entry, cost assumptions, partial targets and conservative stop-first same-bar handling.
 - [ ] Backtest the complete 4H/1H/15M/optional-5M strategy, then run walk-forward/out-of-sample and anti-repainting checks.
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
@@ -50,7 +50,7 @@
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
 - [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
 - [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.
-- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
+- [x] Add Bengali-first 1H trade report, data status, quote/spread status and research backtest panels.\n- [ ] Complete full interactive zone/risk panels and Bengali explanations for each engine/evidence item.
 - [x] Add PWA manifest, mobile metadata, icon, service-worker registration and offline app-shell cache (market data remains online; device install not yet manually verified).
 - [ ] Android packaging only after web core, feed and validation are stable.
 - [x] Add Docker API/web images, Compose deployment, environment template and deployment guide.
@@ -65,5 +65,5 @@
 - [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
 - [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
 - [x] Unified architecture and implementation status documented.
-- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code, quote/spread gate and setup guide are ready. Commission/slippage modelling, Android APK, live MBO/CVD/OI and validated backtesting remain pending. Certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, deployment and Android package remain pending. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
-- [ ] CI for the latest combined changes must be checked before claiming a green build.
+- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code, actual-tick freshness check, quote/spread gate and setup guide are ready. Full multi-timeframe backtesting, Pine parity, calibrated trade planner, live MBO/CVD/OI, real-host deployment and native Android APK remain pending. Research-only 1H Alpha replay is implemented but does not validate the complete strategy. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
+- [ ] Recheck CI after the latest stale-tick guard, UI cleanup and documentation commits; earlier backend/API and frontend build jobs passed on prior commits.
