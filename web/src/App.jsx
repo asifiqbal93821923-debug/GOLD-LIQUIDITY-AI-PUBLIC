@@ -28,7 +28,7 @@ function parseCsv(text){
   });
 }
 
-function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report}){
+function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
   const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]);
   useEffect(()=>{
     if(!host.current) return;
@@ -67,7 +67,7 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report}){
   },[report,candles]);
   return <section className="card chart-card">
     <div className="section-head"><div><span className="eyebrow">PRICE ACTION · XAUUSD</span><h2>Gold Spot <span className="muted">· Main Trading TF: 1H</span></h2></div>
-      <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?'HISTORICAL DATA':'NO DATA'}</span></div>
+      <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?(dataKind==='mt5_bridge'?'MT5 BRIDGE':'HISTORICAL DATA'):'NO DATA'}</span></div>
     <div className="tf-row">{timeframes.map(t=><button key={t} className={timeframe===t?'tf active':'tf'} onClick={()=>setTimeframe(t)}>{t.toUpperCase()}</button>)}
       <button className="tf reload" onClick={onReload} disabled={loading}><RefreshCw size={13}/> Reload</button></div>
     <div ref={host} className="chart-host" aria-label="XAUUSD historical candlestick chart"/>
@@ -80,7 +80,7 @@ export default function App(){
   const [api,setApi]=useState('checking');
   const [config,setConfig]=useState(null);
   const [tf,setTf]=useState('1h');
-  const [candles,setCandles]=useState([]);
+  const [candles,setCandles]=useState([]);\n  const [dataKind,setDataKind]=useState('historical_import');
   const [counts,setCounts]=useState({});
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
@@ -96,7 +96,7 @@ export default function App(){
       const data=await res.json(); const rows=data.data||[];
       setCandles(rows); setCounts(old=>({...old,[frame]:data.count||rows.length}));
       return rows;
-    }catch(e){setMessage('ডেটা লোড করা যায়নি: '+e.message);setCandles([]);return [];}
+    }catch(e){setMessage('ডেটা লোড করা যায়নি: '+e.message);setCandles([]);setDataKind('historical_import');return [];}
     finally{setLoading(false);}
   },[tf]);
 
@@ -150,7 +150,7 @@ export default function App(){
       <article className="card metric"><div className="metric-top"><span>5M ENTRY</span><Target size={17}/></div><b>OPTIONAL</b><small>Never owns trade direction</small></article>
     </section>
 
-    <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)} report={report}/>
+    <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)} report={report} dataKind={dataKind}/>
     <section className="card import-card">
       <div className="section-head"><div><span className="eyebrow">HISTORICAL DATA IMPORT</span><h2>MT5 / CSV Candle Upload</h2></div><Upload size={19}/></div>
       <p>উপরের নির্বাচিত Timeframe-এ CSV Import হবে। Header: <code>time,open,high,low,close,volume</code>। Time Unix seconds/milliseconds অথবা ISO timestamp হতে পারে।</p>
