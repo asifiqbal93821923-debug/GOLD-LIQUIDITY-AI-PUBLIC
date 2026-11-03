@@ -1,5 +1,6 @@
 import math
 import unittest
+from datetime import datetime, timezone
 from server.multitimeframe_backtest import _closed_prefix, run_gold_mtf_backtest
 
 BASE=1700000000
@@ -27,6 +28,19 @@ class MultiTimeframeBacktestTests(unittest.TestCase):
           "1h":make_rows(100,3600),"15m":make_rows(100,900)})
         self.assertEqual(result["status"],"insufficient_history")
         self.assertEqual(result["timeframe"],"4h")
+
+    def test_forming_candles_are_excluded_from_replay(self):
+        frames={"4h":make_rows(50,14400),"1h":make_rows(100,3600),
+                "15m":make_rows(100,900)}
+        now=int(datetime.now(timezone.utc).timestamp())
+        for tf,step in (("4h",14400),("1h",3600),("15m",900)):
+            frames[tf].append({"time":now-60,"open":2300,"high":2302,
+              "low":2299,"close":2301,"volume":100})
+        result=run_gold_mtf_backtest(frames)
+        self.assertEqual(result["status"],"ok")
+        self.assertEqual(result["excluded_unclosed_candles"]["4h"],1)
+        self.assertEqual(result["excluded_unclosed_candles"]["1h"],1)
+        self.assertEqual(result["excluded_unclosed_candles"]["15m"],1)
 
     def test_replay_runs_without_optional_5m(self):
         frames={"4h":make_rows(80,14400),"1h":make_rows(320,3600),
