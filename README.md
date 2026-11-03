@@ -10,18 +10,16 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.2.0 + Engine 01 initial port
-The clean application foundation has been committed:
-- React + Vite responsive frontend.
-- Lightweight Charts integration.
-- FastAPI backend health/configuration/candle endpoints.
-- Architecture and development roadmap.
-- Initial Alpha Signal Engine Pro calculation port, API endpoint and unit tests (parity validation pending).
-- Intake reviews for Alpha Signal, LuxAlgo SMC (partial source), WSB and AI Channels.
-- Unified engine feature-selection and integration blueprint: [Unified Gold Engine Blueprint](docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
+## Current status — Foundation 0.3.0 + initial decision gate
+- React + Vite responsive frontend and Lightweight Charts surface.
+- FastAPI backend with health/configuration/candle endpoints.
+- Initial Alpha Signal Engine Pro Python port and API (parity pending).
+- Source intake reviews for Alpha Signal, LuxAlgo SMC (partial source), WSB and AI Channels.
+- Unified feature-selection architecture: [Unified Gold Engine Blueprint](docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
+- Initial WAIT-first confluence module and POST /api/analysis/unified-decision endpoint. It accepts precomputed, confirmed timeframe/structure/trigger evidence and a valid risk plan; it does not yet calculate those inputs itself.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
-**Not yet complete:** live market data, Pine Script conversion beyond the initial Alpha port, unified confluence, complete analysis calculations, entry signals, backtesting, deployment and Android packaging. The first working screen is a foundation, not a finished trading system.
+**Not yet complete:** production market feed, complete indicator ports, TradingView parity, automatic structure/zones, calculated entry/SL/TP, backtesting, deployment and Android packaging. This is an early engineering foundation, not a finished trading system.
 
 ## Market-data decision
 Primary-source preference: use the user's own MT5 broker feed (through a secure server-side bridge) where practical, because it best matches the quote stream used for execution. A licensed external XAUUSD feed is the fallback. A provider will only be selected after checking symbol availability, WebSocket entitlement, historical depth, latency, terms and cost. Never expose provider API keys in the browser or commit secrets.
