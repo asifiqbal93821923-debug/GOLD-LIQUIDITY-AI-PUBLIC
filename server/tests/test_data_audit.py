@@ -11,8 +11,9 @@ class HistoricalDataAuditTests(unittest.TestCase):
         rows=[candle(BASE),candle(BASE+3600),candle(BASE+7200),candle(BASE+10800)]
         out=audit_candle_history(rows,"1h",BASE+9000)
         self.assertEqual(out["valid_unique_rows"],4)
-        self.assertEqual(out["closed_rows"],3)
+        self.assertEqual(out["closed_rows"],2)
         self.assertEqual(out["forming_rows"],1)
+        self.assertEqual(out["future_rows"],1)
         self.assertEqual(out["future_rows"],0)
         self.assertEqual(out["history_days"],0.125)
 
