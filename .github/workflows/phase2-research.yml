@@ -90,6 +90,7 @@ jobs:
             --slippage-points "${{ inputs.slippage_points }}" \
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
+            --max-spread-points "${{ inputs.max_spread_points }}" \
             --output reports/phase2/alpha-optimizer.json
       - name: 1H entry, stop-loss and target calibration
         run: |
@@ -99,6 +100,7 @@ jobs:
             --slippage-points "${{ inputs.slippage_points }}" \
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
+            --max-spread-points "${{ inputs.max_spread_points }}" \
             --output reports/phase2/trade-plan-calibration.json
       - name: Multi-fold rolling walk-forward and out-of-sample test
         run: |
@@ -113,6 +115,7 @@ jobs:
             --slippage-points "${{ inputs.slippage_points }}" \
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
+            --max-spread-points "${{ inputs.max_spread_points }}" \
             --output reports/phase2/walk-forward.json
       - name: P2.5 base, conservative and adverse execution-cost scenarios
         run: |
