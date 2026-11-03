@@ -3,7 +3,7 @@ import { createChart, CandlestickSeries, ColorType } from 'lightweight-charts';
 import { Activity, AlertTriangle, BarChart3, CandlestickChart, Clock3, Layers3, Radio, ShieldCheck, Target, Waves, Upload, RefreshCw } from 'lucide-react';
 
 const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
-const labels={ '5m':'5 মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
+const labels={ '3m':'৩ মিনিট','5m':'5 মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
 const API='';
 
 function parseCsv(text){
