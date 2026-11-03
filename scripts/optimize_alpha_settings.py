@@ -7,7 +7,6 @@ This is research tooling, not a profitability guarantee or certified Pine parity
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
 import random
 from pathlib import Path
@@ -44,30 +43,69 @@ BASE_ALPHA = {
 }
 
 
+TUNING_AXES = {
+    "atr_period": (10, 14, 18),
+    "band_multiplier": (2.5, 3.0, 3.5, 4.0),
+    "atr_weight": (0.75, 1.0, 1.25),
+    "price_move_weight": (2.5, 5.0, 7.5),
+    "ema_smoothing": (1, 2, 3),
+    "volatility_fingerprint": (False, True),
+    "vf_lookback": (100, 200, 300),
+    "stall_filter": (True, False),
+    "flatness_threshold": (0.03, 0.05, 0.08),
+    "slope_filter": (True, False),
+    "regression_length": (3, 5, 8),
+    "slope_threshold": (0.03, 0.05, 0.08),
+    "volume_filter": (True, False),
+    "volume_ma_length": (14, 20, 30),
+    "range_filter": (True, False),
+    "range_lookback": (50, 100, 150),
+    "range_percentile": (10.0, 20.0, 30.0),
+    "bps_filter": (True, False),
+    "min_bps_delta": (0.5, 1.0, 1.5),
+    "breakout_override": (True, False),
+    "breakout_atr_multiple": (1.0, 1.5, 2.0),
+}
+
+
 def parameter_candidates(count: int = 100, seed: int = 20261103) -> list[dict[str, Any]]:
-    """Return a reproducible sample of a broad, bounded Alpha parameter grid."""
+    """Return baseline + one-factor tests + seeded multi-factor combinations."""
     if count < 1 or count > 500:
         raise ValueError("count must be between 1 and 500")
-    axes = itertools.product(
-        (10, 14, 18),                         # ATR period
-        (2.5, 3.0, 3.5, 4.0),                 # band multiplier
-        (0.75, 1.0, 1.25),                    # ATR weight
-        (2.5, 5.0, 7.5),                      # price-move weight
-        (0.03, 0.05, 0.08),                   # slope threshold
-        (True, False),                        # volume filter
-        (True, False),                        # range filter
-        (0.5, 1.0, 1.5),                      # minimum BPS delta
-    )
-    names = (
-        "atr_period", "band_multiplier", "atr_weight", "price_move_weight",
-        "slope_threshold", "volume_filter", "range_filter", "min_bps_delta",
-    )
-    all_rows = [dict(zip(names, values)) for values in axes]
-    base = {k: BASE_ALPHA[k] for k in names}
-    all_rows = [x for x in all_rows if x != base]
+
+    candidates = [dict(BASE_ALPHA)]
+    seen = {tuple(sorted(BASE_ALPHA.items()))}
+
+    # One-factor-at-a-time candidates guarantee each declared input is tested
+    # independently before random combinations are added.
+    for name, values in TUNING_AXES.items():
+        for value in values:
+            if value == BASE_ALPHA[name]:
+                continue
+            candidate = dict(BASE_ALPHA)
+            candidate[name] = value
+            key = tuple(sorted(candidate.items()))
+            if key not in seen:
+                candidates.append(candidate)
+                seen.add(key)
+            if len(candidates) >= count:
+                return candidates[:count]
+
     rng = random.Random(seed)
-    rng.shuffle(all_rows)
-    return [base] + all_rows[: count - 1]
+    attempts = 0
+    max_attempts = count * 100
+    while len(candidates) < count and attempts < max_attempts:
+        attempts += 1
+        candidate = dict(BASE_ALPHA)
+        for name, values in TUNING_AXES.items():
+            candidate[name] = rng.choice(values)
+        key = tuple(sorted(candidate.items()))
+        if key not in seen:
+            candidates.append(candidate)
+            seen.add(key)
+    if len(candidates) < count:
+        raise RuntimeError("Could not generate the requested number of unique candidates")
+    return candidates
 
 
 def split_chronologically(
