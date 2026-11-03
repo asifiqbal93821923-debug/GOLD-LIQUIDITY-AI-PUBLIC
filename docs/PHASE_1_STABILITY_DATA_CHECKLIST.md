@@ -15,7 +15,7 @@ Status: implementation hardening committed; automated and device-level verificat
 - [ ] Verify repeated open/reload on multiple Android browsers and a clean browser profile.
 - [ ] Verify scheduled collector for at least 24 hours; check run gaps and archive growth.
 - [ ] Verify stale-source fallback using controlled fixtures and verify WAIT/no-signal behaviour when all sources are stale.
-- [ ] Verify Pages assets and data JSON return HTTP 200 after deployment.
+- [x] Verify Pages assets and data JSON return HTTP 200 after deployment (2026-11-03 deployment smoke test: root, snapshot JSON, and history JSON all HTTP 200; 474 points in each data file).
 - [ ] Verify mobile chart resize/orientation changes and low-memory reload behaviour.
 
 ## Data integrity rules
@@ -37,3 +37,17 @@ Status: implementation hardening committed; automated and device-level verificat
 ## Explicitly out of Phase 1
 
 MT5 desktop bridge operation, production FastAPI hosting, Pine parity, strategy profitability, real order-book/MBO access, broker execution and native APK packaging.
+
+
+## Final verification evidence — 2026-11-03
+
+- GitHub Actions on commit `5c30d494ab675efa65b5e9184b4a89c1f81c9989`: backend suite passed (78 tests), frontend CI/build passed, Docker build passed, and production API smoke test passed.
+- Render service `gold-terminal-api`: latest deployment `dep-dbkue6c3a9gc73facbbg` is live; no error-level Render logs were returned during the audit.
+- Production API reported `historical_store=postgresql`, `live_data=false`, and zero stored 1H candles. PostgreSQL connection/configuration and read endpoint are responding, but candle write/read/redeploy persistence is not yet proven.
+- Public XAUS archive currently contains 474 sampled points spanning about 39.8 hours. The rolling 90-day retention logic passed its unit tests; 90 days of accumulated history is not present yet.
+- Collector workflow is configured for every 15 minutes, but the four scheduled runs visible during this audit were 54–75 minutes apart. The required continuous 24-hour cadence/gap check has therefore not passed.
+- GitHub Pages deployment `41649519098` succeeded after the workflow fix in commit `58589faf89cbdf5f58b8dd5612a228a206f2a110`; the post-deploy check confirmed the app root and both JSON data assets return HTTP 200, with 474 points and 90-day retention metadata.
+- Frontend source review confirms archive → snapshot → direct public-feed fallback and rejection of stale/future samples. Backend tests cover stale/future broker candles/quotes and fail-closed spread gates. A dedicated browser-side controlled-fixture test for all-stale WAIT/no-signal remains outstanding.
+- Android multi-browser reload, clean-profile, orientation/resize, and low-memory tests require a real Android browser session and remain outstanding.
+
+MT5 Desktop/EA operation is excluded from this Phase 1 sign-off per the current setup; it is not counted as a remaining acceptance test.
