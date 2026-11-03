@@ -7,3 +7,7 @@ __pycache__/
 node_modules/
 dist/
 .DS_Store
+# Local market data (never commit broker candles or SQLite stores)
+data/
+*.sqlite3
+*.db
