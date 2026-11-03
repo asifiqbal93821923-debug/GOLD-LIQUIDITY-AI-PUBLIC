@@ -48,6 +48,8 @@ def load_m1(path: Path) -> list[dict]:
                 raise ValueError(f"Invalid low at CSV line {line}")
             candle["time"] = t
             candle["volume"] = float(raw[names["volume"]]) if "volume" in names and raw.get(names["volume"], "").strip() else None
+            if candle["volume"] is not None and (not math.isfinite(candle["volume"]) or candle["volume"] < 0):
+                raise ValueError(f"Invalid volume at CSV line {line}")
             rows.append(candle)
     rows.sort(key=lambda x: x["time"])
     if not rows:
@@ -64,8 +66,17 @@ def aggregate(rows: list[dict], seconds: int, now: int) -> tuple[list[dict], dic
         if start + seconds <= now:
             buckets[start].append(row)
     result = []
+    partial_or_gapped = 0
+    accepted_source_rows = 0
+    expected_rows = seconds // 60
     for start, items in sorted(buckets.items()):
         items.sort(key=lambda x: x["time"])
+        expected_times = list(range(start, start + seconds, 60))
+        observed_times = [x["time"] for x in items]
+        if len(items) != expected_rows or observed_times != expected_times:
+            partial_or_gapped += 1
+            continue
+        accepted_source_rows += len(items)
         out = {
             "timestamp": start,
             "open": items[0]["open"],
@@ -81,9 +92,12 @@ def aggregate(rows: list[dict], seconds: int, now: int) -> tuple[list[dict], dic
         "bars": len(result),
         "first_open_utc": datetime.fromtimestamp(result[0]["timestamp"], timezone.utc).isoformat() if result else None,
         "last_open_utc": datetime.fromtimestamp(result[-1]["timestamp"], timezone.utc).isoformat() if result else None,
-        "source_m1_rows": sum(len(v) for k, v in buckets.items()),
-        "source_m1_rows_min_per_bar": min((len(v) for v in buckets.values()), default=0),
-        "source_m1_rows_max_per_bar": max((len(v) for v in buckets.values()), default=0),
+        "candidate_buckets": len(buckets),
+        "source_m1_rows": accepted_source_rows,
+        "source_m1_rows_expected_per_bar": expected_rows,
+        "partial_or_gapped_buckets_excluded": partial_or_gapped,
+        "source_m1_rows_min_per_bar": min((expected_rows for _ in result), default=0),
+        "source_m1_rows_max_per_bar": max((expected_rows for _ in result), default=0),
         "alignment": "UTC epoch-aligned",
         "note": "Only observed provider M1 candles are aggregated; no missing rows are synthesized.",
     }
