@@ -5,12 +5,20 @@ It never fabricates missing candles or claims live market data.
 """
 from __future__ import annotations
 from typing import Any
-from alpha_signal import analyze_alpha_signal
-from smc_structure import analyze_smc_structure
-from wsb_setup import analyze_wsb
-from ai_channels import analyze_ai_channels
-from institutional_footprint import analyze_institutional_footprint
-from unified_decision import analyze_unified_decision
+try:
+    from .alpha_signal import analyze_alpha_signal
+    from .smc_structure import analyze_smc_structure
+    from .wsb_setup import analyze_wsb
+    from .ai_channels import analyze_ai_channels
+    from .institutional_footprint import analyze_institutional_footprint
+    from .unified_decision import analyze_unified_decision
+except ImportError:
+    from alpha_signal import analyze_alpha_signal
+    from smc_structure import analyze_smc_structure
+    from wsb_setup import analyze_wsb
+    from ai_channels import analyze_ai_channels
+    from institutional_footprint import analyze_institutional_footprint
+    from unified_decision import analyze_unified_decision
 
 
 def _trade_plan(side: str | None, candles: list[dict[str,Any]]) -> dict[str,Any]:
@@ -70,9 +78,11 @@ def build_gold_report(timeframes: dict[str,list[dict[str,Any]]],
     h4=fact("4h","alpha")
     h1=fact("1h","alpha")
     m15=fact("15m","smc")
-    m5=fact("5m","wsb","breakout")
-    if m5.get("status")=="ok":
-        m5["direction"]=m5["direction"] if m5["direction"] in ("bullish","bearish") else None
+    wsb_result=outputs.get("5m",{}).get("wsb",{})
+    breakout=wsb_result.get("breakout",{}) if wsb_result.get("status")=="ok" else {}
+    m5={"status":"ok","direction":breakout.get("direction"),"confirmed":bool(breakout.get("confirmed")),"source":"wsb"} if wsb_result.get("status")=="ok" else {"status":wsb_result.get("status","not_available"),"confirmed":False}
+    if m5.get("direction") not in ("bullish","bearish"):
+        m5["direction"]=None
     side=None
     if all(x.get("status")=="ok" for x in (h4,h1,m15,m5)):
         dirs=[h4.get("direction"),h1.get("direction"),m15.get("direction"),m5.get("direction")]
