@@ -129,7 +129,7 @@ def root_health():
     # Root health response for generic platform probes and browser checks.
     return {"status":"ok","app":"GOLD TERMINAL API","health":"/api/health"}
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.4.0"}
 
