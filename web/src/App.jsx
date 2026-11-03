@@ -201,6 +201,8 @@ export default function App(){
   const [costs,setCosts]=useState({point_size:0.01,spread_points:20,slippage_points:5,commission_points_per_side:0});
   const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
+  const [phase2Status,setPhase2Status]=useState(null);
+  const [phase2Busy,setPhase2Busy]=useState(false);
   const fileRef=useRef(null);
 
   const loadCandles=useCallback(async (frame=tf)=>{
@@ -241,6 +243,26 @@ export default function App(){
     return ()=>window.clearInterval(timer);
   },[tf,loadCandles]);
 
+  const refreshPhase2Status=useCallback(async()=>{
+    setPhase2Busy(true);
+    try{
+      const frames=await Promise.all(['4h','1h','15m'].map(async timeframe=>{
+        const res=await fetch(apiUrl('/api/market/candles?timeframe='+timeframe+'&limit=5000'));
+        const data=await res.json();
+        if(!res.ok) throw new Error(data.detail||('Could not read '+timeframe+' history'));
+        return {timeframe,count:Number(data.count??(data.data||[]).length),live:data.live===true,
+          source:data.source||data.data_kind||'historical_import'};
+      }));
+      let quote={status:'not_available',acceptable:false,message:'No broker quote received'};
+      try{const res=await fetch(apiUrl('/api/market/quote'));if(res.ok)quote=await res.json();}catch(_){}
+      setPhase2Status({frames,quote,checkedAt:new Date().toISOString()});
+    }catch(error){
+      setPhase2Status({error:error.message,checkedAt:new Date().toISOString()});
+    }finally{setPhase2Busy(false);}
+  },[]);
+
+  useEffect(()=>{refreshPhase2Status();},[refreshPhase2Status]);
+
   const importFile=async file=>{
     if(!file)return;
     setImporting(true);setMessage('');
@@ -252,6 +274,7 @@ export default function App(){
       if(!res.ok) throw new Error(result.detail||result.message||'Import failed');
       setMessage('সফল: '+result.stored+'টি '+tf.toUpperCase()+' Candle সংরক্ষণ হয়েছে।');
       await loadCandles(tf);
+      refreshPhase2Status();
     }catch(e){setMessage('Import Error: '+e.message);}
     finally{setImporting(false);if(fileRef.current)fileRef.current.value='';}
   };
@@ -318,6 +341,56 @@ export default function App(){
       <article className="card metric"><div className="metric-top"><span>4H MACRO</span><Waves size={17}/></div><b>CONTEXT FILTER</b><small>Higher timeframe confirmation</small></article>
       <article className="card metric"><div className="metric-top"><span>15M SETUP</span><Layers3 size={17}/></div><b>CONFIRMATION</b><small>Structure alignment required</small></article>
       <article className="card metric"><div className="metric-top"><span>5M ENTRY</span><Target size={17}/></div><b>OPTIONAL</b><small>Never owns trade direction</small></article>
+    </section>
+
+    <section className="card phase2-card">
+      <div className="section-head">
+        <div><span className="eyebrow">PHASE 2 · EVIDENCE & ACCEPTANCE</span><h2>Research Completion Tracker</h2></div>
+        <button className="action-btn secondary" onClick={refreshPhase2Status} disabled={phase2Busy}>
+          <RefreshCw size={13}/> {phase2Busy?'Checking…':'Refresh status'}
+        </button>
+      </div>
+      <div className="phase2-banner">
+        <span className="phase2-status-pill">NOT ACCEPTED</span>
+        <div><b>Code readiness is not the same as empirical validation.</b>
+          <small>অ্যাপের research engine-গুলো প্রস্তুত থাকতে পারে, কিন্তু আসল provider data, Pine reference এবং broker evidence ছাড়া Phase 2 PASS দেখানো হবে না।</small>
+        </div>
+      </div>
+      {phase2Status?.error&&<div className="phase2-error">Status read failed: {phase2Status.error}</div>}
+      <div className="phase2-grid">
+        <article className="phase2-item">
+          <div><b>P2.1 · Historical data</b><span className="phase2-tag pending">AUDIT PENDING</span></div>
+          <p>Stored candles এখন API থেকে গণনা করা হচ্ছে। একই provider/ticker, overlapping date range, closed-bar, gaps ও duplicates আলাদা করে যাচাই না হওয়া পর্যন্ত PASS নয়।</p>
+          <div className="phase2-counts">{(phase2Status?.frames||[]).map(x=><span key={x.timeframe}>{x.timeframe.toUpperCase()} <strong>{x.count.toLocaleString()}</strong> / {({ '4h':250,'1h':1000,'15m':4000 }[x.timeframe]).toLocaleString()}</span>)}</div>
+        </article>
+        <article className="phase2-item">
+          <div><b>P2.2 · Pine parity</b><span className="phase2-tag blocked">REFERENCE MISSING</span></div>
+          <p>Comparator ও metadata guard আছে। Alpha Pine source, exact Inputs, 1H confirmed-bar export এবং per-candle comparison report ছাড়া parity verified নয়।</p>
+        </article>
+        <article className="phase2-item">
+          <div><b>P2.3 · Calibration</b><span className="phase2-tag pending">DATA GATED</span></div>
+          <p>Optimizer ও Entry/SL/TP calibration runner আছে। Approved historical sample এবং non-zero maximum-spread cap দিয়ে চালানো ফল এখনও প্রয়োজন।</p>
+        </article>
+        <article className="phase2-item">
+          <div><b>P2.4 · Walk-forward / OOS</b><span className="phase2-tag pending">DATA GATED</span></div>
+          <p>Rolling multi-fold ও sealed holdout runner আছে। Validated same-feed dataset-এ চার fold এবং untouched holdout report এখনও নেই।</p>
+        </article>
+        <article className="phase2-item">
+          <div><b>P2.5 · Execution costs</b><span className="phase2-tag pending">BROKER PROOF PENDING</span></div>
+          <p>Spread/slippage/commission scenarios এবং fail-closed spread gate আছে। XM360 contract size, point value, commission schedule ও observed Bid/Ask/slippage evidence যাচাই বাকি।</p>
+          <small className="phase2-detail">Current quote: {phase2Status?.quote?.fresh?'Fresh broker quote':'No verified fresh broker quote'} · Spread: {phase2Status?.quote?.spread_points??'—'} points · Max cap: {phase2Status?.quote?.max_spread_points??'not configured'}</small>
+        </article>
+        <article className="phase2-item">
+          <div><b>P2.6 · Paper forward</b><span className="phase2-tag pending">LIVE PERIOD PENDING</span></div>
+          <p>Offline closed-candle paper ledger আছে। Continuous feed/receiver, durable ledger এবং pre-declared forward observation period এখনও সম্পন্ন হয়নি।</p>
+        </article>
+      </div>
+      <div className="phase2-links">
+        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/actions/workflows/download-xauusd-history.yml" target="_blank" rel="noreferrer">Open independent Dukascopy history workflow ↗</a>
+        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/actions/workflows/phase2-research.yml" target="_blank" rel="noreferrer">Open Phase 2 same-feed research workflow ↗</a>
+        <a href="https://github.com/asifiqbal93821923-debug/GOLD-LIQUIDITY-AI-PUBLIC/blob/main/docs/PHASE_2_RESEARCH_RUNBOOK.md" target="_blank" rel="noreferrer">Evidence & runbook ↗</a>
+      </div>
+      <small className="phase2-foot">Independent Dukascopy BID data may be used for clearly labelled research only; it does not establish TradingView feed parity or XM360 execution costs. Checked: {phase2Status?.checkedAt?new Date(phase2Status.checkedAt).toLocaleString():'not yet checked'}.</small>
     </section>
 
     <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)} report={report} dataKind={dataKind}/>
