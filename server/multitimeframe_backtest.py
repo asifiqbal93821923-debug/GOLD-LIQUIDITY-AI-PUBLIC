@@ -117,9 +117,7 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
         ai1=analyze_ai_channels(h1_prefix,(settings or {}).get("ai_channels"))
         liq1=analyze_institutional_footprint(h1_prefix,(settings or {}).get("liquidity"))
         liq15=analyze_institutional_footprint(m15_prefix,(settings or {}).get("liquidity"))
-        max_spread=float((costs or {}).get("max_spread_points",0) or 0)
-        spread_points=float((costs or {}).get("spread_points",0) or 0)
-        spread_ok=(max_spread<=0 or spread_points<=max_spread)
+        spread_ok=_spread_is_acceptable(costs)
         decision=analyze_unified_decision({
           "data":{"fresh":True,"complete":True},
           "4h_bias":_fact(h4_alpha),
