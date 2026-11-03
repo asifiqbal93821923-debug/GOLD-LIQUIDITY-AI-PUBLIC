@@ -72,7 +72,8 @@ def process(ledger,decision,candle,costs=None):
     ledger["updated_at"]=datetime.now(timezone.utc).isoformat()
     return ledger,{"status":"ok","opened":opened,"closed":closed,"open_positions":sum(x["status"]=="OPEN" for x in trades),
       "warning":"Paper simulation only. Supply broker-matched closed OHLC and costs; no live order was sent.",
-      "commission_price_per_side":commission,"spread_price":spread,"slippage_price":slip,\n      "spread_gate":"PASS" if spread_gate_ok else "WAIT" }
+      "commission_price_per_side":commission,"spread_price":spread,"slippage_price":slip,
+      "spread_gate":"PASS" if spread_gate_ok else "WAIT" }
 
 def save(path,ledger):
     Path(path).parent.mkdir(parents=True,exist_ok=True)
