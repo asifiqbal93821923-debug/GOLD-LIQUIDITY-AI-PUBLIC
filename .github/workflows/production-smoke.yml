@@ -1,0 +1,89 @@
+name: GOLD TERMINAL production API smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-smoke.yml"
+      - "server/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for the free Render API to respond
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://gold-terminal-api.onrender.com"
+          ready=0
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then
+              ready=1
+              break
+            fi
+            echo "API not awake yet (attempt $attempt/18); retrying..."
+            sleep 10
+          done
+          test "$ready" -eq 1
+          python - <<'PY'
+          import json
+          with open("/tmp/health.json", encoding="utf-8") as f:
+              health = json.load(f)
+          assert health.get("status") == "ok", health
+          print("API health: PASS")
+          print("App:", health.get("app"))
+          print("Version:", health.get("version"))
+          PY
+
+      - name: Verify root GET and HEAD health probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://gold-terminal-api.onrender.com"
+          curl --fail --silent --show-error "$BASE/" -o /tmp/root.json
+          curl --fail --silent --show-error --head "$BASE/" -o /tmp/root-head.txt
+          python - <<'PY'
+          import json
+          with open("/tmp/root.json", encoding="utf-8") as f:
+              root = json.load(f)
+          assert root.get("status") == "ok", root
+          print("Root GET: PASS")
+          print("Root app:", root.get("app"))
+          PY
+          grep -qE '^HTTP/[0-9.]+ 200' /tmp/root-head.txt
+          echo "Root HEAD: PASS (HTTP 200)"
+
+      - name: Verify config status and historical candle HTTP endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://gold-terminal-api.onrender.com"
+          curl --fail --silent --show-error --max-time 30 "$BASE/api/config/status" -o /tmp/config.json
+          curl --fail --silent --show-error --max-time 30 "$BASE/api/market/candles?timeframe=1h&limit=3" -o /tmp/candles.json
+          python - <<'PY'
+          import json
+          with open("/tmp/config.json", encoding="utf-8") as f:
+              config = json.load(f)
+          with open("/tmp/candles.json", encoding="utf-8") as f:
+              candles = json.load(f)
+          assert config.get("market") == "XAUUSD", config
+          assert config.get("historical_store") in {"sqlite", "postgresql"}, config
+          assert isinstance(config.get("timeframe_health"), dict), config
+          assert isinstance(config.get("quote"), dict), config
+          assert candles.get("timeframe") == "1h", candles
+          assert isinstance(candles.get("data"), list), candles
+          print("Config status: PASS")
+          print("Historical storage backend:", config.get("historical_store"))
+          print("MT5 bridge token configured:", bool(config.get("bridge_token_configured")))
+          print("Live data:", bool(config.get("live_data")))
+          print("1H candle endpoint: PASS")
+          print("Returned candle count:", candles.get("count", 0))
+          if config.get("historical_store") != "postgresql":
+              print("::warning::Persistent Neon PostgreSQL is not active yet; API currently reports SQLite.")
+          PY
