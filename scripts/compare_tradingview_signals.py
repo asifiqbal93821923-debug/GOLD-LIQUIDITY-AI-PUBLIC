@@ -158,17 +158,6 @@ def compare(reference, candidate, numeric_columns=(), tolerance_seconds=0, numer
     }
 
 
-def compare_metadata(reference_meta, candidate_meta):
-    keys = ("script_title", "pine_version", "symbol", "provider", "timezone",
-            "timeframe", "bar_timestamp", "bar_confirmation", "settings")
-    differences = {}
-    for key in keys:
-        if reference_meta.get(key) != candidate_meta.get(key):
-            differences[key] = {"tradingview": reference_meta.get(key), "python": candidate_meta.get(key)}
-    return {"status": "PASS" if not differences else "FAIL", "differences": differences,
-            "required_keys": list(keys)}
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", required=True, help="TradingView per-bar CSV")
