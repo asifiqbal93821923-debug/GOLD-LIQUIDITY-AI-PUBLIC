@@ -11,6 +11,7 @@ A standalone XAUUSD analysis application for Web and Android (PWA first, native 
 - Web dashboard consumes imported historical or recently bridged MT5 candles, plots OHLC candles, and overlays initial 1H SMC candidate levels on the main chart.
 - Authenticated MT5 Expert Advisor bridge for closed candles and Bid/Ask quotes, with configurable spread hard gate; user-side MT5/server configuration is still required.
 - PWA manifest, service worker and offline app-shell cache are implemented; market/API data intentionally remains online-only.
+- Docker API/web images, Compose deployment and deployment documentation are implemented; actual host/DNS/TLS setup remains external.
 - Research-only 1H Alpha replay supports next-bar entries, partial target exits, stop-first same-bar handling and configurable execution costs.
 
 ## Planned modules
