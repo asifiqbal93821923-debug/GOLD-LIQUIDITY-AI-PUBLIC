@@ -3,18 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import os
 
-app = FastAPI(title="Project Indicator App API", version="0.1.0")
+app = FastAPI(title="Project Indicator App API", version="0.2.1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173").split(","),
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "PROJECT INDICATOR APP", "version": "0.1.0"}
+    return {"status": "ok", "app": "PROJECT INDICATOR APP", "version": "0.2.1"}
 
 @app.get("/api/config/status")
 def config_status():
