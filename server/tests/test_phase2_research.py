@@ -4,6 +4,7 @@ from pathlib import Path
 
 from scripts.analyze_price_action_setups import classify, outcome_summary
 from scripts.prepare_xauusd_dataset import read_export
+from server.gold_report import _trade_plan_1h
 
 
 class Phase2ResearchTests(unittest.TestCase):
@@ -30,13 +31,36 @@ class Phase2ResearchTests(unittest.TestCase):
         events = [{"index": 9, "side": "BUY", "type": "retest", "time": 9}]
         self.assertEqual(outcome_summary(bars, events), {})
 
+    def test_1h_trade_plan_parameters_change_sl_and_targets(self):
+        bars = [
+            {"time": i * 3600, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10}
+            for i in range(60)
+        ]
+        plan = _trade_plan_1h("BUY", bars, {
+            "atr_period": 10, "swing_lookback": 10,
+            "stop_atr_buffer": 0.20, "entry_atr_half_width": 0.10,
+            "target_rr": [1, 2, 3],
+        })
+        self.assertTrue(plan["valid"])
+        self.assertEqual(plan["source_timeframe"], "1h")
+        self.assertAlmostEqual(plan["stop_loss"], 98.6, places=5)
+        self.assertAlmostEqual(plan["targets"][0], 101.4, places=5)
+
+    def test_1h_trade_plan_rejects_non_increasing_rr(self):
+        bars = [
+            {"time": i * 3600, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10}
+            for i in range(60)
+        ]
+        plan = _trade_plan_1h("BUY", bars, {"target_rr": [1, 1, 2]})
+        self.assertFalse(plan["valid"])
+
     def test_csv_import_rejects_unclosed_candles_and_local_naive_times(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "bars.csv"
-            path.write_text("time,open,high,low,close\\n2026-11-03T00:00:00,100,101,99,100\\n", encoding="utf-8")
+            path.write_text("time,open,high,low,close\n2026-11-03T00:00:00,100,101,99,100\n", encoding="utf-8")
             with self.assertRaises(ValueError):
                 read_export(str(path), "1h", 2_000_000_000)
-            path.write_text("time,open,high,low,close\\n2026-11-03T00:00:00Z,100,101,99,100\\n", encoding="utf-8")
+            path.write_text("time,open,high,low,close\n2026-11-03T00:00:00Z,100,101,99,100\n", encoding="utf-8")
             with self.assertRaises(ValueError):
                 read_export(str(path), "1h", 1_500_000_000)
 
