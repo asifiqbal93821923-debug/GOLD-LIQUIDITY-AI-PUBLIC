@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate Docker Compose configuration
+        run: MARKET_INGEST_TOKEN=ci-placeholder docker compose config --quiet
       - name: Build API image
         run: docker build -f Dockerfile.api -t gold-terminal-api:test .
       - name: Build web image
