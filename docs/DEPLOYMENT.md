@@ -29,3 +29,16 @@ docker compose logs -f api web
 ## Current deployment boundary
 
 Docker packaging files are provided, but no cloud account, DNS, TLS certificate, VPS or production host has been configured by this repository change. A production deployment is therefore not claimed complete.
+
+
+## GitHub Pages + separate API host (GOLD TERMINAL)
+
+GitHub Pages serves only the static React/PWA frontend; it does not run FastAPI. To make dashboard API features work from the Pages URL:
+
+1. Deploy **this repository's** FastAPI service to a persistent HTTPS host. Do not point it at the separate GOLD-LIQUIDITY-AI service.
+2. In the GitHub repository settings, add an Actions repository variable named `GOLD_TERMINAL_API_BASE_URL` with the API origin only, for example `https://your-gold-terminal-api.example.com` (no trailing slash and no `/api` suffix).
+3. On the API host, set `CORS_ORIGINS=https://asifiqbal93821923-debug.github.io` (include any additional trusted frontend origins only if needed), `MARKET_INGEST_TOKEN`, `CANDLE_DB_PATH`, and a measured `MAX_SPREAD_POINTS`.
+4. Push a frontend change or manually run the **Deploy Android PWA to GitHub Pages** workflow so the frontend is rebuilt with the API origin.
+5. Verify `/api/health`, `/api/config/status`, candle retrieval and quote status on the API host, then reload the Pages app.
+
+If `GOLD_TERMINAL_API_BASE_URL` is unset, the frontend uses same-origin relative API paths. That is useful for local/reverse-proxy deployment but **will not connect FastAPI through GitHub Pages**. Never put bridge tokens or provider secrets in a GitHub Actions variable or frontend build variable.
