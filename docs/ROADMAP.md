@@ -38,7 +38,7 @@ Last reconciled: 2026-11-03
 - [x] 4H macro swing levels and 1H swing/FVG/OB-candidate/EQH/EQL price levels are drawn on the main chart across chart views.
 - [x] Bengali-first Gold Report panel with BUY/SELL/WAIT, reason codes and 1H entry/SL/TP proposal.
 - [x] Historical CSV import, data status, quote/spread status and backtest result panels.
-- [ ] Full shaded supply/demand/FVG/OB zones with timestamp lifecycle, mitigation and invalidation.
+- [x] Timestamped OHLCV-derived FVG/OB zone lifecycle (active/mitigated/invalidated) and shaded 4H/1H/15M overlays on the main chart; not verified institutional resting orders.
 - [ ] Prior day/week/month levels, richer liquidity sweep annotations and multi-timeframe zone labels.
 - [ ] Full per-engine Bengali evidence explanations and accessible mobile refinements.
 - [ ] Visual validation on actual Android device sizes and slow network.
@@ -67,7 +67,7 @@ Last reconciled: 2026-11-03
 - [ ] Build and sign a native Android APK after feed, strategy validation and web core are stable.
 - [ ] Install/test native package on a real Android device.
 
-## Current verification boundary
+- Shaded zone overlay now uses each zone's source-candle epoch timestamp and price bounds; only active zones are painted, while the Zone Radar lists lifecycle state. Missing/invalid timestamps prevent drawing rather than fabricating placement.\n\n## Current verification boundary
 
 - Backend syntax and unit tests have passed on the latest backend feature commits, including the causal MTF replay and stale-tick spread gate.
 - Frontend production build has passed after the MTF replay panel and 4H/1H price overlays.
