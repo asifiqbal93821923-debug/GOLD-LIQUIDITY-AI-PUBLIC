@@ -108,7 +108,16 @@ export default function App(){
     fetch('/api/config/status').then(r=>r.ok?r.json():null).then(setConfig).catch(()=>setConfig(null));},[]);
   useEffect(()=>{loadCandles(tf);},[tf,loadCandles]);
 
-  const importFile=async file=>{
+
+  useEffect(()=>{
+    const timer=window.setInterval(()=>{
+      loadCandles(tf);
+      fetch('/api/config/status').then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
+      fetch('/api/market/quote').then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
+    },30000);
+    return ()=>window.clearInterval(timer);
+  },[tf,loadCandles]);
+\n  const importFile=async file=>{
     if(!file)return;
     setImporting(true);setMessage('');
     try{
