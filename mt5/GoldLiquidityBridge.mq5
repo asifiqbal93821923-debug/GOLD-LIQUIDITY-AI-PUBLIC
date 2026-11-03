@@ -81,12 +81,38 @@ bool SendTimeframe(ENUM_TIMEFRAMES tf)
    return true;
 }
 
+
+bool SendQuote()
+{
+   double bid=SymbolInfoDouble(InpSymbol,SYMBOL_BID);
+   double ask=SymbolInfoDouble(InpSymbol,SYMBOL_ASK);
+   double point=SymbolInfoDouble(InpSymbol,SYMBOL_POINT);
+   if(bid<=0 || ask<bid || point<=0) return false;
+   string body=StringFormat("{\\"symbol\\":\\"XAUUSD\\",\\"time\\":%I64d,\\"bid\\":%s,\\"ask\\":%s,\\"point\\":%s}",
+      (long)TimeCurrent(),DoubleToString(bid,(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS)),
+      DoubleToString(ask,(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS)),DoubleToString(point,10));
+   string headers="Content-Type: application/json\\r\\nX-Bridge-Token: "+InpBridgeToken+"\\r\\n";
+   char post_data[],result[];
+   StringToCharArray(body,post_data,0,WHOLE_ARRAY,CP_UTF8);
+   if(ArraySize(post_data)>0) ArrayResize(post_data,ArraySize(post_data)-1);
+   string response_headers;
+   int status=WebRequest("POST",InpApiBaseUrl+"/api/market/quote/bridge",headers,10000,post_data,result,response_headers);
+   if(status<200 || status>=300)
+   {
+      Print("MT5 quote bridge HTTP ",status," error=",GetLastError()," response=",CharArrayToString(result,0,-1,CP_UTF8));
+      return false;
+   }
+   Print("MT5 quote bridge OK spread_points=",DoubleToString((ask-bid)/point,2));
+   return true;
+}
+
 void PushAll()
 {
    if(InpSendH4)  SendTimeframe(PERIOD_H4);
    if(InpSendH1)  SendTimeframe(PERIOD_H1);
    if(InpSendM15) SendTimeframe(PERIOD_M15);
    if(InpSendM5)  SendTimeframe(PERIOD_M5);
+   SendQuote();
 }
 
 int OnInit()
