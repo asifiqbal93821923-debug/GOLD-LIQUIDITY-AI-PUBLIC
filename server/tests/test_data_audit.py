@@ -14,7 +14,7 @@ class HistoricalDataAuditTests(unittest.TestCase):
         self.assertEqual(out["closed_rows"],2)
         self.assertEqual(out["forming_rows"],1)
         self.assertEqual(out["future_rows"],1)
-        self.assertEqual(out["future_rows"],0)
+        self.assertEqual(out["future_rows"],1)
         self.assertEqual(out["history_days"],0.125)
 
     def test_reports_duplicates_and_out_of_order_without_silent_hiding(self):
