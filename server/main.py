@@ -252,7 +252,7 @@ def get_market_quote(symbol: str="XAUUSD"):
     return {"status":"ok","symbol":"XAUUSD","bid":quote["bid"],"ask":quote["ask"],
       "spread_points":state.get("spread_points"),"max_spread_points":state.get("max_spread_points"),
       "fresh":state["fresh"],"acceptable":state["acceptable"],"quote_age_seconds":state.get("quote_age_seconds"),
-      "source":quote["source"],"updated_at":quote["updated_at"],
+      "source":quote["source"],"updated_at":quote["updated_at"],"reason":state.get("reason"),
       "message":"Spread within configured limit." if state["acceptable"] else "Spread gate closed: actual tick stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
 
