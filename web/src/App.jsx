@@ -86,6 +86,9 @@ export default function App(){
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [report,setReport]=useState(null);
+  const [backtest,setBacktest]=useState(null);
+  const [backtestBusy,setBacktestBusy]=useState(false);
+  const [costs,setCosts]=useState({spread_points:'20',slippage_points:'5',commission_points_per_side:'0',point_size:'0.01'});
   const [quoteInfo,setQuoteInfo]=useState(null);
   const [backtest,setBacktest]=useState(null);
   const [costs,setCosts]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0});
@@ -162,6 +165,20 @@ export default function App(){
     }catch(e){setMessage('Backtest Error: '+e.message);}
   };
 
+
+  const runBacktest=async()=>{
+    setBacktestBusy(true);setBacktest(null);setMessage('');
+    try{
+      const res=await fetch('/api/market/candles?timeframe=1h&limit=5000');
+      const d=await res.json();const rows=d.data||[];
+      if(rows.length<50)throw new Error('১H Backtest-এর জন্য অন্তত ৫০টি Historical Candle Import করুন।');
+      const result=await fetch('/api/backtest/alpha-1h',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({candles:rows,settings:{},costs:Object.fromEntries(Object.entries(costs).map(([k,v])=>[k,Number(v)]))})});
+      const data=await result.json();if(!result.ok)throw new Error(data.detail||'Backtest failed');setBacktest(data);
+    }catch(e){setMessage('Backtest Error: '+e.message);}
+    finally{setBacktestBusy(false);}
+  };
+
   const decision=report?.decision||{};
   const plan=decision.trade_plan;
   return <main className="shell">
@@ -214,7 +231,18 @@ export default function App(){
         </div>}
     </section>
 
-    <section className="lower-grid">
+
+    <section className="card report-card">
+      <div className="section-head"><div><span className="eyebrow">HISTORICAL STRATEGY RESEARCH</span><h2>১H Alpha Backtest</h2></div>
+        <button className="action-btn" onClick={runBacktest} disabled={backtestBusy}>{backtestBusy?'Testing…':'Run 1H Backtest'}</button></div>
+      <p className="backtest-note">এটি শুধু Alpha Signal Engine-এর ১H flip replay; সম্পূর্ণ 4H/1H/15M Gold Report strategy নয়। Broker-এর আসল execution cost না জানলে ফলাফল নির্ভরযোগ্য নয়।</p>
+      <div className="cost-inputs">{[['spread_points','Spread (points)'],['slippage_points','Slippage (points)'],['commission_points_per_side','Commission / side (points)'],['point_size','Point size']].map(([key,label])=>
+        <label key={key}>{label}<input type="number" min="0" step="any" value={costs[key]} onChange={e=>setCosts(old=>({...old,[key]:e.target.value}))}/></label>)}</div>
+      {!backtest?<div className="empty-state"><BarChart3 size={22}/><b>Historical backtest চালান</b><span>বর্তমান নির্বাচিত chart নয়, সংরক্ষিত ১H candle data ব্যবহার হবে।</span></div>:
+        <div className="backtest-results"><div><small>TRADES</small><b>{backtest.trade_count}</b></div><div><small>WIN RATE</small><b>{backtest.win_rate_pct}%</b></div><div><small>NET P/L</small><b>{backtest.net_pnl_price}</b></div><div><small>PROFIT FACTOR</small><b>{backtest.profit_factor??'—'}</b></div><div><small>AVG R</small><b>{backtest.average_R}</b></div><div><small>MAX DD</small><b>{backtest.max_drawdown_price}</b></div>
+        <p>{backtest.scope_warning||backtest.reason||backtest.execution_model}</p></div>}
+    </section>
+\n    <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
         <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
