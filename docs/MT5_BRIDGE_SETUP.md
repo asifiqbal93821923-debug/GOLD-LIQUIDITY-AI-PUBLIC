@@ -8,7 +8,8 @@ Set a long random secret in the server environment. Do not commit it or put it i
 
 ```bash
 export MARKET_INGEST_TOKEN='replace-with-a-long-random-secret'
-export CANDLE_DB_PATH='data/market_candles.sqlite3'\nexport MAX_SPREAD_POINTS='your-broker-approved-maximum-points'
+export CANDLE_DB_PATH='data/market_candles.sqlite3'
+export MAX_SPREAD_POINTS='0' # set a measured numeric broker limit before enabling BUY/SELL
 uvicorn main:app --app-dir server --host 127.0.0.1 --port 8765
 ```
 
@@ -16,7 +17,8 @@ For Windows PowerShell:
 
 ```powershell
 $env:MARKET_INGEST_TOKEN = "replace-with-a-long-random-secret"
-$env:CANDLE_DB_PATH = "data/market_candles.sqlite3"\n$env:MAX_SPREAD_POINTS = "your-broker-approved-maximum-points"
+$env:CANDLE_DB_PATH = "data/market_candles.sqlite3"
+$env:MAX_SPREAD_POINTS = "0" # set a measured numeric broker limit before enabling BUY/SELL
 uvicorn main:app --app-dir server --host 127.0.0.1 --port 8765
 ```
 
@@ -37,10 +39,13 @@ If the broker uses a suffix (for example `XAUUSDm`), change `InpSymbol` to that 
 ## 3. Verify
 
 - `GET /api/config/status` should show `live_data: true` after recent authenticated EA updates.
-- `GET /api/market/candles?timeframe=1h&limit=300` should return imported closed candles.\n- `GET /api/market/quote` should show a fresh quote and whether it passes the configured spread limit.
+- `GET /api/market/candles?timeframe=1h&limit=300` should return imported closed candles.
+- `GET /api/market/quote` should show a fresh quote and whether it passes the configured spread limit.
 - The web dashboard should show candles after refresh.
 
-The EA also sends current broker Bid/Ask snapshots to `/api/market/quote/bridge`. Set `MAX_SPREAD_POINTS` to a limit appropriate for your broker's XAUUSD digits and normal spread; until a positive limit is configured and a fresh quote is received, the spread gate stays closed and the report returns WAIT.\n\nThe bridge resends historical closed candles, so the SQLite store is upserted by symbol/timeframe/timestamp. The server considers the feed recent only while the latest bridge write is within 180 seconds.
+The EA also sends current broker Bid/Ask snapshots to `/api/market/quote/bridge`. Set `MAX_SPREAD_POINTS` to a limit appropriate for your broker's XAUUSD digits and normal spread; until a positive limit is configured and a fresh quote is received, the spread gate stays closed and the report returns WAIT.
+
+The bridge resends historical closed candles, so the SQLite store is upserted by symbol/timeframe/timestamp. The server requires recent MT5 candle uploads and checks the timestamp of the actual last broker tick (not just the timer's last HTTP request) before allowing the spread gate to pass. Both checks use a 180-second freshness window.
 
 ## Important limits
 
