@@ -33,7 +33,7 @@ Use HTTPS and a protected server for remote connections. Do not expose an unauth
 3. Compile it in MetaEditor. Confirm **0 errors** in the Toolbox/Errors tab. A successful GitHub build does not compile MQL5 code.
 4. In MT5, open **Tools → Options → Expert Advisors**.
 5. Enable **Allow WebRequest for listed URL** and add the exact API host, e.g. `http://127.0.0.1:8765` for same-PC local testing.
-6. Attach **GoldLiquidityBridge** to an XAUUSD chart. In Inputs, set the API base URL and the same secret as `MARKET_INGEST_TOKEN`. If your broker's symbol is suffixed (such as `XAUUSDm` or `GOLD.`), set `InpSymbol` to the exact Market Watch symbol. The EA maps it to the app's canonical XAUUSD label.
+6. Attach **GoldLiquidityBridge** to an XAUUSD chart. The EA now defaults to `https://gold-terminal-api.onrender.com`; keep that URL for the hosted GOLD TERMINAL API, and set the same secret as the server's `MARKET_INGEST_TOKEN` in the EA Inputs. If your broker's symbol is suffixed (such as `XAUUSDm` or `GOLD.`), set `InpSymbol` to the exact Market Watch symbol. The EA maps it to the app's canonical XAUUSD label.
 7. Confirm the MT5 Experts/Journal tab shows HTTP 200 responses.
 
 If the broker uses a suffix (for example `XAUUSDm`), change `InpSymbol` to that exact Market Watch symbol. The bridge maps the feed into the app's canonical XAUUSD symbol.
