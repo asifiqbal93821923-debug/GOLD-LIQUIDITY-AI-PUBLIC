@@ -6,6 +6,7 @@ code, not a claim of Pine parity or strategy profitability.
 """
 from __future__ import annotations
 from collections import Counter
+from datetime import datetime, timezone
 from typing import Any
 try:
     from .market_data import validate_candles
@@ -50,12 +51,20 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
                           costs:dict[str,float]|None=None,
                           settings:dict[str,Any]|None=None):
     normalized={}
+    excluded_unclosed={}
+    now_epoch=int(datetime.now(timezone.utc).timestamp())
     for tf in ("4h","1h","15m","5m"):
         raw=timeframes.get(tf) or []
         if raw:
-            try: normalized[tf]=validate_candles(raw)
+            try: rows=validate_candles(raw)
             except ValueError as exc: return {"status":"invalid_data","timeframe":tf,"reason":str(exc)}
-        else: normalized[tf]=[]
+            duration=TF_SECONDS[tf]
+            closed=[row for row in rows if int(row["time"])+duration<=now_epoch]
+            excluded_unclosed[tf]=len(rows)-len(closed)
+            normalized[tf]=closed
+        else:
+            normalized[tf]=[]
+            excluded_unclosed[tf]=0
     for tf in ("4h","1h","15m"):
         if len(normalized[tf])<50:
             return {"status":"insufficient_history","timeframe":tf,"required_minimum":50,"received":len(normalized[tf])}
@@ -123,7 +132,7 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
     result.update({
       "strategy":"Gold Report AI multi-timeframe causal replay",
       "timeframe":"1h_primary","signals_evaluated":evaluated,
-      "accepted_signals":len(events),"veto_counts":dict(vetoes),
+      "accepted_signals":len(events),"veto_counts":dict(vetoes),\n      "excluded_unclosed_candles":excluded_unclosed,
       "timeframe_policy":{"4h":"latest fully closed macro candle","1h":"primary Alpha direction and trade plan",
         "15m":"latest fully closed SMC setup","5m":"optional latest fully closed WSB refinement"},
       "scope_warning":"Research replay only. Uses current Python adapters, not certified Pine parity. 1H trade plan is uncalibrated; spread/costs are user assumptions. OHLC bars cannot resolve intrabar order, handled conservatively stop-first."})
