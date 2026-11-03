@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import datetime, timezone
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -35,7 +36,7 @@ class ServerTradeGateTests(unittest.TestCase):
             store=CandleStore(str(Path(tmp)/"candles.db"))
             for tf in ("4h","1h","15m"):
                 store.upsert("XAUUSD",tf,sample(),"mt5_bridge")
-            store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,1760000000,"mt5_bridge")
+            store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,int(datetime.now(timezone.utc).timestamp()),"mt5_bridge")
             with patch.object(api,"STORE",store), patch.dict(os.environ,{"MAX_SPREAD_POINTS":"20"}):
                 out=api.gold_report_analysis(self.payload(False,False))
                 codes=out["decision"]["reason_codes"]
