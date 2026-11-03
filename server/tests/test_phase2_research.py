@@ -5,6 +5,7 @@ from pathlib import Path
 from scripts.analyze_price_action_setups import classify, outcome_summary
 from scripts.prepare_xauusd_dataset import read_export
 from server.gold_report import _trade_plan_1h
+from scripts.calibrate_trade_plan import _metrics
 
 
 class Phase2ResearchTests(unittest.TestCase):
@@ -53,6 +54,22 @@ class Phase2ResearchTests(unittest.TestCase):
         ]
         plan = _trade_plan_1h("BUY", bars, {"target_rr": [1, 1, 2]})
         self.assertFalse(plan["valid"])
+
+    def test_trade_plan_calibration_metrics_include_expectancy_and_skips(self):
+        report = {
+            "trade_count": 2, "win_rate_pct": 50.0, "net_pnl_price": 1.0,
+            "average_R": 0.25, "profit_factor": 1.5, "max_drawdown_price": 0.5,
+            "accepted_signals": 2, "signals_evaluated": 5, "skipped_signals": 3,
+            "trades": [
+                {"net_R": 1.0, "net_pnl_price": 2.0},
+                {"net_R": -0.5, "net_pnl_price": -1.0},
+            ],
+        }
+        result = _metrics(report)
+        self.assertEqual(result["expectancy_R"], 0.25)
+        self.assertEqual(result["losing_trades"], 1)
+        self.assertEqual(result["skipped_signal_rate_pct"], 60.0)
+        self.assertIsNotNone(result["sample_size_warning"])
 
     def test_csv_import_rejects_unclosed_candles_and_local_naive_times(self):
         with tempfile.TemporaryDirectory() as folder:
