@@ -93,6 +93,15 @@ def build_gold_report(timeframes: dict[str,list[dict[str,Any]]],
       "data":{"fresh":bool(data_fresh),"complete":bool(complete)},
       "4h_bias":h4,"1h_bias":h1,"15m_structure":m15,"5m_trigger":m5,
       "spread":{"acceptable":bool(spread_acceptable)},
+      "ai_channel_context":{
+        tf: {"status":outputs.get(tf,{}).get("ai_channels",{}).get("status"),
+             "channel_state":outputs.get(tf,{}).get("ai_channels",{}).get("channel_state")}
+        for tf in ("4h","1h")
+      },
+      "liquidity_context":{
+        tf: outputs.get(tf,{}).get("liquidity",{})
+        for tf in ("15m","5m")
+      },
       "trade_plan":plan
     })
     return {
