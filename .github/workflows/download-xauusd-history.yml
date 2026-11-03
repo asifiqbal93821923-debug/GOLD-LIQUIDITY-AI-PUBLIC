@@ -1,0 +1,72 @@
+name: Download same-feed XAUUSD historical CSVs
+
+on:
+  workflow_dispatch:
+    inputs:
+      from_date:
+        description: "UTC start date (YYYY-MM-DD)"
+        required: true
+        default: "2020-01-01"
+        type: string
+      to_date:
+        description: "UTC end date (YYYY-MM-DD, inclusive)"
+        required: true
+        default: "2026-11-03"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  download-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download Dukascopy XAUUSD M1 BID and derive all timeframes
+        run: |
+          python scripts/download_xauusd_same_feed.py \
+            --from-date "${{ inputs.from_date }}" \
+            --to-date "${{ inputs.to_date }}" \
+            --output-dir data/phase2 \
+            --raw-dir data/raw
+      - name: Audit all generated CSVs
+        run: |
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          root = Path("data/phase2")
+          manifest = json.loads((root / "xauusd_data_manifest.json").read_text())
+          expected = {"4h": "xauusd_4h.csv", "1h": "xauusd_1h.csv", "15m": "xauusd_15m.csv"}
+          for tf, name in expected.items():
+              path = root / name
+              with path.open(newline="") as f:
+                  rows = list(csv.DictReader(f))
+              assert len(rows) >= 250, (tf, len(rows))
+              times = [int(r["timestamp"]) for r in rows]
+              assert times == sorted(set(times)), tf
+              assert all(float(r["high"]) >= max(float(r["open"]), float(r["close"]), float(r["low"])) for r in rows), tf
+              assert all(float(r["low"]) <= min(float(r["open"]), float(r["close"]), float(r["high"])) for r in rows), tf
+              print(f"{name}: PASS | {len(rows)} bars | {manifest['aggregation'][tf]['first_open_utc']} -> {manifest['aggregation'][tf]['last_open_utc']}")
+          assert manifest["provider"] == "Dukascopy"
+          assert manifest["price_side"] == "BID"
+          assert manifest["timezone"] == "UTC"
+          print("SAME-FEED PROVENANCE: PASS")
+          PY
+      - name: Upload the three CSVs and provenance manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: xauusd-same-feed-historical-csvs
+          path: |
+            data/phase2/xauusd_4h.csv
+            data/phase2/xauusd_1h.csv
+            data/phase2/xauusd_15m.csv
+            data/phase2/xauusd_data_manifest.json
+          if-no-files-found: error
+          retention-days: 90
