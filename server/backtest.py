@@ -86,6 +86,7 @@ def simulate_trade_events(candles: list[dict[str,Any]], events: list[dict[str,An
             if remaining<=1e-9:
                 remaining=0.0; break
         if remaining>1e-9:
+            exit_reason="END_OF_DATA"
             close=float(candles[exit_index]["close"])
             fill=close-half_cost if side=="BUY" else close+half_cost
             gross+=((fill-entry) if side=="BUY" else (entry-fill))*remaining
