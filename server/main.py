@@ -11,13 +11,13 @@ try:
     from .unified_decision import analyze_unified_decision
     from .institutional_footprint import analyze_institutional_footprint
     from .gold_report import build_gold_report
-    from .market_data import CandleStore, validate_candles
+    from .market_data import CandleStore, validate_candles, to_epoch_seconds
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
     from institutional_footprint import analyze_institutional_footprint
     from gold_report import build_gold_report
-    from market_data import CandleStore, validate_candles
+    from market_data import CandleStore, validate_candles, to_epoch_seconds
 
 app = FastAPI(title="Project Indicator App API", version="0.4.0")
 app.add_middleware(CORSMiddleware,
@@ -41,6 +41,13 @@ class CandleImportRequest(BaseModel):
     timeframe: str
     source: str = "user_import"
     candles: list[Candle] = Field(min_length=1, max_length=100000)
+
+class QuoteBridgeRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    time: str | int | float
+    bid: float
+    ask: float
+    point: float
 
 class AlphaAnalysisRequest(BaseModel):
     candles: list[Candle] = Field(min_length=1, max_length=5000)
@@ -128,6 +135,38 @@ def mt5_candle_bridge(payload: CandleImportRequest, x_bridge_token: str | None =
     return {"status":"ok","source":"mt5_bridge","timeframe":payload.timeframe,
       "received":len(rows),"stored":count,"live":True,
       "note":"EA should resend closed bars on its timer; freshness is based on server receive time."}
+
+
+@app.post("/api/market/quote/bridge")
+def mt5_quote_bridge(payload: QuoteBridgeRequest, x_bridge_token: str | None = Header(default=None, alias="X-Bridge-Token")):
+    expected=os.getenv("MARKET_INGEST_TOKEN")
+    if not expected:
+        raise HTTPException(503,"Server MT5 bridge token is not configured.")
+    if not x_bridge_token or not hmac.compare_digest(x_bridge_token,expected):
+        raise HTTPException(401,"Invalid bridge token.")
+    if payload.symbol.upper()!="XAUUSD" or payload.bid<=0 or payload.ask<payload.bid or payload.point<=0:
+        raise HTTPException(422,"Invalid XAUUSD quote or point size.")
+    try: quote_time=to_epoch_seconds(payload.time)
+    except ValueError as exc: raise HTTPException(422,str(exc))
+    STORE.upsert_quote("XAUUSD",payload.bid,payload.ask,payload.point,quote_time,"mt5_bridge")
+    return {"status":"ok","source":"mt5_bridge","spread_points":(payload.ask-payload.bid)/payload.point}
+
+@app.get("/api/market/quote")
+def get_market_quote(symbol: str="XAUUSD"):
+    quote=STORE.latest_quote(symbol.upper())
+    if not quote: return {"status":"not_available","acceptable":False,"message":"No broker bid/ask quote received."}
+    fresh=False
+    try:
+        updated=datetime.fromisoformat(quote["updated_at"])
+        fresh=(datetime.now(timezone.utc)-updated).total_seconds()<=180
+    except (TypeError,ValueError): pass
+    try: threshold=float(os.getenv("MAX_SPREAD_POINTS","0"))
+    except ValueError: threshold=0.0
+    acceptable=bool(fresh and quote["source"]=="mt5_bridge" and threshold>0 and quote["spread_points"]<=threshold)
+    return {"status":"ok","symbol":symbol.upper(),"bid":quote["bid"],"ask":quote["ask"],
+      "spread_points":round(quote["spread_points"],2),"max_spread_points":threshold or None,
+      "fresh":fresh,"acceptable":acceptable,"source":quote["source"],"updated_at":quote["updated_at"],
+      "message":"Spread within configured limit." if acceptable else "Spread gate closed: quote stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
 @app.post("/api/analysis/alpha-signal")
 def alpha_signal_analysis(payload: AlphaAnalysisRequest):
