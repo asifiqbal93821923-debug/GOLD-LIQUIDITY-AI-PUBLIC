@@ -45,11 +45,12 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Do not optimize on win rate alone; prevent test-set leakage.
 
 ### P2.4 — Out-of-sample and walk-forward
-- [ ] Freeze a chronological untouched holdout period before tuning.
-- [ ] Implement rolling/anchored walk-forward folds with training and test boundaries recorded.
-- [ ] Run each fold with costs and settings fixed before its test segment.
-- [ ] Report fold-level and aggregate results, including losing/zero-trade folds.
-- [ ] Verify no trade from a training interval is counted as out-of-sample.
+- [ ] Freeze a final chronological untouched holdout period before any tuning; this remains an empirical acceptance gate.
+- [x] Implement rolling/anchored walk-forward folds with explicit training and disjoint test boundaries (`scripts/rolling_walk_forward_validation.py`).
+- [x] Pass fixed execution costs/settings unchanged to each fold; no fold test is used to select parameters.
+- [x] Report fold-level metrics, zero/losing folds, aggregate OOS trade count/PnL and leakage-control assertions.
+- [x] Unit tests cover short-history refusal and invalid fold configurations.
+- [ ] Execute all folds and inspect reports on verified same-feed candles with XM360-verified costs; confirm training/test separation from the produced artifact.
 
 ### P2.5 — Realistic execution-cost scenarios
 - [ ] Calibrate point size, spread, slippage and commission from the intended broker's actual contract specification and observed quotes.
