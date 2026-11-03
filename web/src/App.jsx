@@ -201,6 +201,22 @@ export default function App(){
     </section>
 
 
+
+    <section className="card report-card">
+      <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><button className="action-btn" onClick={runBacktest}>Run Backtest</button></div>
+      <p className="backtest-note">এটি শুধু Alpha Signal Engine-এর ১H flip replay; সম্পূর্ণ 4H/1H/15M Gold Report strategy নয়। Broker-এর প্রকৃত execution cost বসাও।</p>
+      <div className="cost-inputs">
+        <label>Point Size<input type="number" min="0.000001" step="0.001" value={costs.point_size} onChange={e=>setCosts(v=>({...v,point_size:Number(e.target.value)}))}/></label>
+        <label>Spread (points)<input type="number" min="0" step="1" value={costs.spread_points} onChange={e=>setCosts(v=>({...v,spread_points:Number(e.target.value)}))}/></label>
+        <label>Slippage (points)<input type="number" min="0" step="1" value={costs.slippage_points} onChange={e=>setCosts(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
+        <label>Commission / side (points)<input type="number" min="0" step="1" value={costs.commission_points_per_side} onChange={e=>setCosts(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
+      </div>
+      {!backtest?<div className="empty-state"><Activity size={22}/><b>১H Alpha Flip Replay</b><span>অন্তত ৫০টি ১H Historical Candle Import করে Backtest চালাও।</span></div>:
+        <div className="backtest-result"><div className="backtest-grid">
+          <span>Trades <b>{backtest.trade_count}</b></span><span>Win Rate <b>{backtest.win_rate_pct}%</b></span><span>Net PnL <b>{backtest.net_pnl_price}</b></span><span>Average R <b>{backtest.average_R}</b></span><span>Profit Factor <b>{backtest.profit_factor??'—'}</b></span><span>Max Drawdown <b>{backtest.max_drawdown_price}</b></span>
+        </div><small>{backtest.scope_warning||backtest.reason||backtest.execution_model}</small></div>}
+    </section>
+
     <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
         <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
