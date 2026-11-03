@@ -117,7 +117,8 @@ export default function App(){
     },30000);
     return ()=>window.clearInterval(timer);
   },[tf,loadCandles]);
-\n  const importFile=async file=>{
+
+  const importFile=async file=>{
     if(!file)return;
     setImporting(true);setMessage('');
     try{
