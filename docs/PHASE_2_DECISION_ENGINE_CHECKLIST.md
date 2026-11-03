@@ -50,3 +50,24 @@ Software implementation and automated CI/regression checks are complete. MTF ali
 - [ ] Paper-trading observation period has not started/completed. The ledger must be fed continuously with new closed candles and realistic quote costs.
 
 **Important:** Validation infrastructure is implemented and tested; market-data-dependent validation results are not complete. Do not report strategy profitability or exact Pine parity from unit tests.
+
+## Research implementation update (2026-11-03)
+
+- [x] Added `scripts/prepare_xauusd_dataset.py`: imports TradingView OHLC CSVs only when the operator supplies one exact source + ticker for every timeframe; validates UTC timestamps, candle closure, OHLC integrity, duplicates and history sufficiency. Source labels are operator assertions and still require visual verification against the TradingView chart header.
+- [x] Made the 1H structure/ATR Entry, SL and three RR target parameters configurable in the causal MTF replay.
+- [x] Added `scripts/calibrate_trade_plan.py`: 60/20/20 chronological train/validation/sealed-test calibration; spread, slippage and commission passed into each replay; only train/validation select the candidate and the sealed test is evaluated once.
+- [x] Added `scripts/analyze_price_action_setups.py`: separate causal OHLC classifications for liquidity-sweep, false-breakout and confirmed retest, with descriptive forward MFE/MAE/close-return summaries.
+- [x] Increased the MTF replay's 1H history ceiling to 6,000 candles for longer chronological samples.
+- [x] Added regression tests for sweep/false-breakout, retest confirmation, incomplete forward outcomes, and invalid/unclosed CSV rows.
+
+## What is still not complete (data-dependent)
+
+- [ ] **Same-feed history is not yet collected.** The new importer is ready, but no historical TradingView export is currently available in this repository. The earlier 48-hour sampled public dataset is not enough. Do not substitute Dukascopy or another provider and label it as the user's TradingView feed.
+- [ ] **Actual Pine/Python parity is not run.** Exact TradingView ticker/provider, full Pine source/version, input values, and exported plotted BUY/SELL/WAIT events are not present. TradingView's CSV export can include OHLC and script plots when those values are plotted by the script.
+- [ ] **Historical 1H calibration has no empirical winner yet.** The 243-candidate calibration harness is implemented; it must be run on the same-feed closed OHLC set with the target broker's real spread, slippage and commission assumptions.
+- [ ] **False-breakout/sweep/retest have code-level classifications, not market-performance validation.** Their frequency and forward outcomes still need to be measured on the same-feed historical 15M data. They are OHLC proxies, not order-book/MBO observations.
+- [ ] **Walk-forward/OOS report is not yet produced on real data.** The runner and explicit transaction-cost model exist; no defensible result is available until same-feed data and broker costs are supplied.
+- [ ] **Optimizer sealed-test result is pending.** Candidate generation/selection logic exists, but no candidate is selected or tested without the full chronological dataset. Never re-optimize against the sealed test.
+- [ ] **Continuous forward paper-trading period has not started or completed.** The offline ledger exists, but continuous observation requires a running feed/receiver, persistent ledger storage and elapsed market sessions. No broker orders are sent.
+
+**Phase 2 acceptance rule:** software tools and tests being present is not equivalent to historical evidence. Keep Phase 2 open until the same-feed dataset, Pine parity report, calibrated trade-plan report, costed walk-forward/OOS report, sealed-test report and a pre-defined forward paper-trading sample have all been saved and reviewed.
