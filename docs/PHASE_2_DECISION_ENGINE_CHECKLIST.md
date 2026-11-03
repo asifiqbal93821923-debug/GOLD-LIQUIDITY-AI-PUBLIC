@@ -36,3 +36,17 @@ Started: 2026-11-03
 ## Verification boundary
 
 Software implementation and automated CI/regression checks are complete. MTF alignment/no-lookahead behavior is covered by unit tests, but the strategy has not been validated on sufficient real historical market data. TradingView parity cannot be verified without an actual export from the user's exact chart/feed and Pine inputs. Current Alpha/SMC modules are adapters, not parity-certified full Pine ports. Public sampled XAU data is not broker Bid/Ask or true traded volume. No institutional order book/MBO or true CVD feed is connected. The application does not place orders. Passing software tests does not establish profitability.
+
+
+## Trading validation tooling update (2026-11-03)
+
+- [x] Added `scripts/compare_tradingview_signals.py` for timestamp-aligned BUY/SELL/WAIT event comparison and mismatch reporting.
+- [x] Added `scripts/walk_forward_validation.py` for chronological fixed-parameter train/holdout replay with both partitions required to meet the MTF engine's minimum closed-bar history.
+- [x] Added `scripts/paper_trade_ledger.py` for offline hypothetical trade logging, entry-zone checks, spread/slippage assumptions and conservative OHLC stop/target resolution. It never sends broker orders.
+- [x] Added unit tests for parity mismatch reporting, insufficient walk-forward history and paper-ledger WAIT/entry behavior. Backend test workflow passed 64 tests on commit `f6c18bfbade91008d276b62698f026d40dfab409`.
+- [x] Added operator guide at `docs/TRADING_VALIDATION_TOOLS.md`.
+- [ ] Actual TradingView parity remains blocked pending the user's same-feed signal export and Pine version/inputs.
+- [ ] Actual historical calibration and walk-forward metrics remain blocked pending sufficient genuine broker/TradingView 4H/1H/15M OHLC history and target-broker cost assumptions.
+- [ ] Paper-trading observation period has not started/completed. The ledger must be fed continuously with new closed candles and realistic quote costs.
+
+**Important:** Validation infrastructure is implemented and tested; market-data-dependent validation results are not complete. Do not report strategy profitability or exact Pine parity from unit tests.
