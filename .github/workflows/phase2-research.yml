@@ -63,7 +63,7 @@ jobs:
             --output reports/phase2/xauusd_mtf_ohlcv.json
       - name: Parameter optimizer and sealed test
         run: |
-          python scripts/optimize_alpha_settings.py \
+          python -m scripts.optimize_alpha_settings \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --candidates 100 \
             --spread-points "${{ inputs.spread_points }}" \
@@ -73,7 +73,7 @@ jobs:
             --output reports/phase2/alpha-optimizer.json
       - name: 1H entry, stop-loss and target calibration
         run: |
-          python scripts/calibrate_trade_plan.py \
+          python -m scripts.calibrate_trade_plan \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --spread-points "${{ inputs.spread_points }}" \
             --slippage-points "${{ inputs.slippage_points }}" \
@@ -82,7 +82,7 @@ jobs:
             --output reports/phase2/trade-plan-calibration.json
       - name: Costed walk-forward and out-of-sample test
         run: |
-          python scripts/walk_forward_validation.py \
+          python -m scripts.walk_forward_validation \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --train-fraction 0.70 \
             --spread-points "${{ inputs.spread_points }}" \
@@ -92,14 +92,14 @@ jobs:
             --output reports/phase2/walk-forward.json
       - name: False-breakout, sweep and retest diagnostics
         run: |
-          python scripts/analyze_price_action_setups.py \
+          python -m scripts.analyze_price_action_setups \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --output reports/phase2/price-action-setups.json
       - name: Generate Python reference and compare Pine export when supplied
         run: |
           SETTINGS=""
           if [ -s data/phase2/alpha-settings.json ]; then SETTINGS="--settings data/phase2/alpha-settings.json"; fi
-          python scripts/export_python_signal_events.py \
+          python -m scripts.export_python_signal_events \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --timeframe 1h $SETTINGS \
             --output reports/phase2/python-signals-1h.csv
