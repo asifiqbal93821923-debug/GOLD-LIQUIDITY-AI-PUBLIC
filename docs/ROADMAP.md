@@ -11,7 +11,7 @@
 - [x] Create initial Python port and API contract for Alpha Signal Engine.
 - [x] Add deterministic contract tests and CI test step.
 - [ ] Compare output with TradingView-exported OHLCV and identical settings; fix all material mismatches.
-- [ ] Intake the user's additional indicators under docs/INDICATOR_INTEGRATION_STANDARD.md.
+- [x] Receive LuxAlgo Smart Money Concepts source (partial) and document its candidate feature inventory.\n- [ ] Receive the remaining LuxAlgo source and complete source audit.\n- [ ] Intake further user indicators under docs/INDICATOR_INTEGRATION_STANDARD.md.
 - [ ] Create isolated modules, attribution/license records, settings and parity fixtures for accepted features.
 - [ ] Build a confluence layer that prevents correlated indicators from being double-counted.
 
