@@ -44,6 +44,7 @@ P2.2 implementation status: comparator, metadata preflight and fail-closed workf
 ### P2.3 — Trade-plan calibration
 - [x] Dedicated 1H calibration runner exists (scripts/calibrate_trade_plan.py) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
 - [x] Calibration is separate from signal generation and uses the causal MTF replay; spread, slippage, commission and point-size assumptions are explicit.
+- [x] Alpha optimizer and 1H trade-plan calibration both require the same positive maximum-spread cap; missing/zero cap fails closed.
 - [x] Calibration report now includes trade count, skipped signals/rate, losing trades, expectancy in R, average R, profit factor, net PnL, max drawdown, sample-size warning, chronological bar counts and split boundaries.
 - [x] Unit test added for the new calibration diagnostics.
 - [ ] Run the calibration against verified same-feed 4H/1H/15M OHLCV and broker-verified execution costs; inspect the generated report.
@@ -55,6 +56,7 @@ P2.2 implementation status: comparator, metadata preflight and fail-closed workf
 - [ ] Freeze a final chronological untouched holdout period before any tuning; this remains an empirical acceptance gate.
 - [x] Implement rolling/anchored walk-forward folds with explicit training and disjoint test boundaries (scripts/rolling_walk_forward_validation.py).
 - [x] Pass fixed execution costs/settings unchanged to each fold; no fold test is used to select parameters.
+- [x] Require the same positive maximum-spread cap for train, OOS folds and sealed holdout; missing/zero cap fails closed.
 - [x] Report fold-level metrics, zero/losing folds, aggregate OOS trade count/PnL and leakage-control assertions.
 - [x] Unit tests cover short-history refusal and invalid fold configurations.
 - [ ] Execute all folds and inspect reports on verified same-feed candles with XM360-verified costs; confirm training/test separation from the produced artifact.

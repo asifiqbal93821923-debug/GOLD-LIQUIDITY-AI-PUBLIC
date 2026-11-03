@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any
 
 from scripts.optimize_alpha_settings import split_chronologically, robust_score
 from server.multitimeframe_backtest import run_gold_mtf_backtest
+from scripts.research_cost_policy import with_fail_closed_spread_gate
 
 CANDIDATES = [
     {"atr_period": atr, "swing_lookback": lookback, "stop_atr_buffer": buffer,
@@ -26,6 +28,7 @@ CANDIDATES = [
 
 def calibrate(frames: dict[str, list[dict[str, Any]]], costs: dict[str, float],
               min_trades: int = 10) -> dict[str, Any]:
+    costs = with_fail_closed_spread_gate(costs)
     split = split_chronologically(frames)
     if split.get("status") != "ok":
         return {"status": "insufficient_history", "split": {k: v for k, v in split.items() if k != "partitions"}}
@@ -101,12 +104,16 @@ def main() -> None:
     ap.add_argument("--slippage-points", type=float, required=True)
     ap.add_argument("--commission-points-per-side", type=float, default=0)
     ap.add_argument("--point-size", type=float, default=0.01)
+    ap.add_argument("--max-spread-points", type=float, required=True,
+                    help="Defensible observed maximum spread; zero keeps all entries blocked")
     ap.add_argument("--min-trades", type=int, default=10)
     args = ap.parse_args()
     costs = {"spread_points": args.spread_points, "slippage_points": args.slippage_points,
              "commission_points_per_side": args.commission_points_per_side,
-             "point_size": args.point_size}
-    if min(costs.values()) < 0 or costs["point_size"] <= 0:
+             "point_size": args.point_size, "max_spread_points": args.max_spread_points,
+             "require_spread_limit": True}
+    if (not all(math.isfinite(float(v)) for v in costs.values()) or min(costs.values()) < 0
+            or costs["point_size"] <= 0):
         raise SystemExit("Costs must be non-negative and point-size positive")
     frames = json.loads(Path(args.input).read_text(encoding="utf-8"))
     result = calibrate(frames, costs, args.min_trades)
