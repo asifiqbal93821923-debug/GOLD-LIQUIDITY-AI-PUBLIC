@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      CANDLE_DB_PATH: /data/market_candles.sqlite3
+      MARKET_INGEST_TOKEN: ${MARKET_INGEST_TOKEN:?Set MARKET_INGEST_TOKEN in .env}
+      MAX_SPREAD_POINTS: ${MAX_SPREAD_POINTS:-0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    volumes:
+      - candle_data:/data
+    expose:
+      - "8765"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "${APP_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  candle_data:
