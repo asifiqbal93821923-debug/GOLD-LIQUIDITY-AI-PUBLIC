@@ -16,7 +16,7 @@ Put the files in data/phase2 using these exact names:
 
 Required candle columns: time,open,high,low,close. Volume is optional. Timestamps must be UTC Unix seconds/milliseconds or timezone-aware ISO-8601 strings. Export fully closed bars only. Do not mix OANDA:XAUUSD, TVC:GOLD, COMEX futures, broker MT5, or other sources. They are not interchangeable data feeds.
 
-Aim for at least 250 bars per required timeframe for the 60/20/20 optimizer/calibration partitions; a longer sample spanning multiple volatility regimes is preferred. Do not exceed 6,000 1H bars for one MTF replay input. The 250-bar threshold is a minimum technical gate, not a statistically sufficient sample.
+Aim for aligned overlapping history of approximately at least 250 x 4H bars, 1,000 x 1H bars and 4,000 x 15M bars over the same calendar interval. The importer computes the actual 60/20/20 partitions and requires at least 50 fully closed bars in every required timeframe in each partition; it refuses the dataset otherwise. More history spanning multiple volatility regimes is preferred. Do not exceed 6,000 1H bars for one MTF replay input. These are technical floors, not statistically sufficient sample sizes.
 
 ## 2. Pine reference event export
 
