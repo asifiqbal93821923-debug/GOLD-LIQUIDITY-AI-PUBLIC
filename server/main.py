@@ -32,15 +32,34 @@ app.add_middleware(CORSMiddleware,
 STORE = CandleStore(os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
 TIMEFRAMES = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1D"}
 
-def _fresh_ingest(tf: str, now: datetime | None=None) -> bool:
+TF_SECONDS={"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"4h":14400,"1D":86400}
+
+def _ingest_status(tf: str, now: datetime | None=None) -> dict:
     now=now or datetime.now(timezone.utc)
     ingest=STORE.latest_ingest("XAUUSD",tf)
-    if not ingest or ingest.get("source")!="mt5_bridge": return False
+    if not ingest or ingest.get("source")!="mt5_bridge":
+        return {"fresh":False,"reason":"NO_MT5_CANDLE_INGEST"}
     try:
-        age=(now-datetime.fromisoformat(ingest["updated_at"])).total_seconds()
-        return 0<=age<=180
-    except (TypeError,ValueError):
-        return False
+        received_at=datetime.fromisoformat(ingest["updated_at"])
+        receive_age=(now-received_at).total_seconds()
+        latest=STORE.read("XAUUSD",tf,1)
+        if not latest:
+            return {"fresh":False,"reason":"NO_CLOSED_CANDLES"}
+        bar_open=int(latest[-1]["time"])
+        bar_close=bar_open+TF_SECONDS[tf]
+        bar_age=now.timestamp()-bar_close
+        # A candle must have closed, and the most recent closed candle must be
+        # no older than one full timeframe plus the bridge grace window.
+        fresh=bool(0<=receive_age<=180 and -5<=bar_age<=TF_SECONDS[tf]+180)
+        return {"fresh":fresh,"receive_age_seconds":round(receive_age,1),
+          "last_candle_open":bar_open,"last_candle_close":bar_close,
+          "last_candle_close_age_seconds":round(bar_age,1),
+          "reason":None if fresh else "STALE_OR_UNCLOSED_LAST_CANDLE"}
+    except (TypeError,ValueError,KeyError):
+        return {"fresh":False,"reason":"INVALID_INGEST_TIMESTAMP"}
+
+def _fresh_ingest(tf: str, now: datetime | None=None) -> bool:
+    return _ingest_status(tf,now)["fresh"]
 
 def _quote_status(now: datetime | None=None) -> dict:
     now=now or datetime.now(timezone.utc)
@@ -113,14 +132,15 @@ def health():
 def config_status():
     provider=os.getenv("MARKET_DATA_PROVIDER","not_configured")
     now=datetime.now(timezone.utc)
-    bars={tf:_fresh_ingest(tf,now) for tf in ("4h","1h","15m")}
+    bars={tf:_ingest_status(tf,now) for tf in ("4h","1h","15m")}
     quote=_quote_status(now)
-    live=all(bars.values()) and quote["fresh"]
+    live=all(x["fresh"] for x in bars.values()) and quote["fresh"]
     latest=STORE.latest_ingest("XAUUSD")
     return {"market":"XAUUSD","provider":provider,
       "credentials_present":bool(os.getenv("MARKET_DATA_API_KEY")),
       "bridge_token_configured":bool(os.getenv("MARKET_INGEST_TOKEN")),
-      "live_data":live,"fresh_closed_timeframes":bars,"quote":quote,
+      "live_data":live,"fresh_closed_timeframes":{tf:x["fresh"] for tf,x in bars.items()},
+      "timeframe_health":bars,"quote":quote,
       "spread_acceptable":quote["acceptable"],"last_ingest":latest,"historical_store":"sqlite",
       "message":"Fresh MT5 candles and broker quote are being received." if live else "Historical data is available; one or more MT5 candle timeframes or the actual broker tick is stale/missing.",
       "checked_at":now.isoformat()}
@@ -133,11 +153,7 @@ def get_candles(timeframe: str="1h", limit: int=1000, symbol: str="XAUUSD"):
     ingest=STORE.latest_ingest(symbol.upper(),timeframe)
     live=False
     if ingest and ingest.get("source")=="mt5_bridge":
-        try:
-            updated=datetime.fromisoformat(ingest["updated_at"])
-            live=(datetime.now(timezone.utc)-updated).total_seconds()<=180
-        except (TypeError,ValueError):
-            live=False
+        live=_fresh_ingest(timeframe)
     return {"status":"ok" if rows else "not_available","symbol":symbol.upper(),
       "timeframe":timeframe,"count":len(rows),"data":rows,
       "data_kind":"mt5_bridge" if live else "historical_import","source":ingest.get("source") if ingest else None,
@@ -172,6 +188,14 @@ def mt5_candle_bridge(payload: CandleImportRequest, x_bridge_token: str | None =
     rows=[x.model_dump() for x in payload.candles]
     try: normalized=validate_candles(rows)
     except ValueError as exc: raise HTTPException(422,str(exc))
+    now=datetime.now(timezone.utc).timestamp()
+    latest=normalized[-1]["time"]
+    period=TF_SECONDS[payload.timeframe]
+    close_time=latest+period
+    if close_time>now+5:
+        raise HTTPException(422,"Latest MT5 candle is not closed yet or has a future timestamp.")
+    if now-close_time>period+180:
+        raise HTTPException(422,"Latest MT5 closed candle is stale; refresh broker history before sending.")
     count=STORE.upsert("XAUUSD",payload.timeframe,normalized,"mt5_bridge")
     return {"status":"ok","source":"mt5_bridge","timeframe":payload.timeframe,
       "received":len(rows),"stored":count,"live":True,
