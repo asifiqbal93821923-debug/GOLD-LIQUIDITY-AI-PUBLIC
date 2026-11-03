@@ -16,10 +16,10 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
 - Source intake reviews for Alpha Signal, LuxAlgo SMC (partial source), WSB and AI Channels.
 - Unified feature-selection architecture: [Unified Gold Engine Blueprint](docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
-- 1H-primary Gold Report orchestrator: 4H macro context, 1H direction/trade-plan source, 15M setup confirmation and optional 5M refinement.\n- CSV historical-candle import, SQLite persistence, candlestick chart rendering and initial 1H SMC candidate-level overlays.
+- 1H-primary Gold Report orchestrator: 4H macro context, 1H direction/trade-plan source, 15M setup confirmation and optional 5M refinement.\n- CSV historical-candle import, SQLite persistence, candlestick chart rendering and initial 1H SMC candidate-level overlays.\n- Authenticated MT5 Expert Advisor bridge source and setup guide; actual live connection requires server token configuration and EA installation.
 - Explicit no-data state: the app does not invent candles or present demo values as live prices.
 
-**Not yet complete:** live/provider feed, full Pine parity, fully validated zones and trade planning, spread/cost model, backtesting, deployment, PWA and Android packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
+**Not yet complete:** actual MT5 bridge connection on the user's machine, live feed operational verification, full Pine parity, fully validated zones and trade planning, spread/cost model, backtesting, deployment, PWA and Android packaging. The current 1H ATR/structure plan is an uncalibrated proposal, not a validated trading system. This is an early engineering foundation, not a finished trading system.
 
 ## Market-data decision
 Primary-source preference: use the user's own MT5 broker feed (through a secure server-side bridge) where practical, because it best matches the quote stream used for execution. A licensed external XAUUSD feed is the fallback. A provider will only be selected after checking symbol availability, WebSocket entitlement, historical depth, latency, terms and cost. Never expose provider API keys in the browser or commit secrets.
@@ -41,7 +41,7 @@ npm install
 npm run dev
 ```
 
-The Vite development server proxies `/api` to the local FastAPI server.\n\n### Import historical candles\nUse the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`.
+The Vite development server proxies `/api` to the local FastAPI server.\n\n### Import historical candles\nUse the dashboard CSV importer for the selected timeframe. Required headers: `time,open,high,low,close`; optional `volume`. `time` accepts Unix seconds/milliseconds or ISO timestamps. Imported candles are stored locally in SQLite and are explicitly historical, not live. For MT5 desktop streaming, see [MT5 Bridge Setup](docs/MT5_BRIDGE_SETUP.md) and compile [GoldLiquidityBridge.mq5](mt5/GoldLiquidityBridge.mq5). Set `MARKET_INGEST_TOKEN` on the server and the same token in EA inputs; do not commit the token. Supported endpoint: `POST /api/market/candles/import`; retrieve with `GET /api/market/candles?timeframe=1h&limit=3000`.
 
 ## Security and trading safeguards
 - Store secrets in server environment variables only.
