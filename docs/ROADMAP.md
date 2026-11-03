@@ -91,3 +91,19 @@ Last reconciled: 2026-11-03
 - [ ] Verify the user's authenticated MT5 feed and broker-calibrated server spread cap before claiming live alerts are operational.
 
 Phase 3 is an analysis, risk-control and recordkeeping layer. It does not place, modify or close broker orders. Institutional MBO/order-book, true CVD, OI and iceberg detection still require licensed feeds.
+
+
+## G. Phase 4 — one-call validation and dashboard cleanup (2026-11-04)
+
+- [x] Remove the visible Alpha Signal Research Backtest card and its fields/actions from the dashboard.
+- [x] Remove the visible manual Trade Journal card, create/close fields and journal-linked dashboard counters. Existing storage/API records are preserved for compatibility and are not deleted.
+- [x] Add a server-side Phase 4 API and one dashboard action for data preflight, historical data audit, causal MTF replay, three execution-cost scenarios, walk-forward folds and a sealed holdout.
+- [x] Repair walk-forward OOS warm-up: each test/holdout window receives up to 50 prior candles per timeframe, while an OOS start gate prevents context-only signals from being counted.
+- [x] Add Phase 4 preflight and warm-up separation tests.
+- [ ] Run the full validation on same-provider XAUUSD 4H/1H/15M/optional-5M source exports. No such user data bundle was supplied to this run.
+- [ ] Compare all relevant outputs with confirmed-bar TradingView exports and exact Pine version/settings; parity remains uncertified.
+- [ ] Replace assumed costs with timestamped broker-observed spread, slippage, commission and point-size evidence.
+- [ ] Verify authenticated MT5 feed and perform a persistent forward paper test.
+- [ ] Verify GitHub Pages and Render deployment after CI/deploy workflows complete.
+
+Phase 4 code completion is not strategy certification. The report remains NOT_CERTIFIED until data provenance, TradingView parity, broker costs, live MT5 and forward paper evidence are independently verified.

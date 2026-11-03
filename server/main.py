@@ -142,7 +142,7 @@ class Phase4ValidationRequest(BaseModel):
     costs: dict = Field(default_factory=dict)
     settings: dict = Field(default_factory=dict)
     metadata: dict = Field(default_factory=dict)
-    folds: int = Field(default=4, ge=2, le=8)
+    folds: int = Field(default=4, ge=2, le=4)
 
 
 class QuoteBridgeRequest(BaseModel):

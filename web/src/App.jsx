@@ -455,7 +455,7 @@ export default function App(){
       <p className="phase4-intro">একই XAUUSD feed-এর 4H, 1H, 15M ও optional 5M candle দিয়ে data audit, causal multi-timeframe replay, base/conservative/adverse cost stress এবং chronological walk-forward + sealed holdout পরীক্ষা হবে। Pine parity ও live broker execution আলাদা certification gate।</p>
       <div className="phase4-form">
         <label>Data provider / broker<input value={phase4Provider} onChange={e=>setPhase4Provider(e.target.value)} placeholder="যেমন: MT5 · broker name"/></label>
-        <label>Data timezone<input value={phase4Timezone} onChange={e=>setPhase4Timezone(e.target.value)} placeholder="UTC"/></label>
+        <label>Data timezone<input value={phase4Timezone} onChange={e=>setPhase4Timezone(e.target.value)} placeholder="UTC or Asia/Kolkata"/></label>
         <label>Point size<input type="number" min="0.000001" step="0.001" value={phase4Costs.point_size} onChange={e=>setPhase4Costs(v=>({...v,point_size:Number(e.target.value)}))}/></label>
         <label>Observed spread (points)<input type="number" min="0" step="0.1" value={phase4Costs.spread_points} onChange={e=>setPhase4Costs(v=>({...v,spread_points:Number(e.target.value)}))}/></label>
         <label>Observed max spread cap<input type="number" min="0" step="0.1" value={phase4Costs.max_spread_points} onChange={e=>setPhase4Costs(v=>({...v,max_spread_points:Number(e.target.value)}))}/></label>
@@ -465,7 +465,7 @@ export default function App(){
       <label className="phase4-attest"><input type="checkbox" checked={phase4SameFeed} onChange={e=>setPhase4SameFeed(e.target.checked)}/> আমি নিশ্চিত করছি 4H / 1H / 15M / 5M ডেটা একই XAUUSD provider, symbol ও timezone থেকে এসেছে (এটি user attestation; স্বয়ংক্রিয় প্রমাণ নয়)।</label>
       <small className="phase4-warning">ব্যাংক/ব্রোকারের আসল spread, slippage, commission এবং point size বসাতে হবে। Max spread শূন্য থাকলে research entry fail-closed হবে। পরীক্ষার খরচ-মান broker evidence ছাড়া verified নয়।</small>
       {phase4Report&&<div className="phase4-results">
-        <div className={'phase4-status '+(phase4Report.status==='research_pass_not_certified'?'pass':'blocked')}>
+        <div className={'phase4-status '+(phase4Report.status==='complete_not_certified'?'pass':'blocked')}>
           <b>{phase4Report.status==='research_pass_not_certified'?'RESEARCH RUN COMPLETE · NOT CERTIFIED':(phase4Report.status||'BLOCKED').replaceAll('_',' ').toUpperCase()}</b>
           <span>Final certification: {phase4Report.final_certification||'NOT CERTIFIED'}</span>
         </div>
