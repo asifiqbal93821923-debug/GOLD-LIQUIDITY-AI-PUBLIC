@@ -35,9 +35,13 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Do not claim parity until fixture comparisons pass.
 
 ### P2.3 — Trade-plan calibration
-- [ ] Calibrate 1H entry width, ATR period/buffer, swing lookback and TP R multiples using training data only.
-- [ ] Separate signal generation from calibration/optimizer logic.
-- [ ] Report trade frequency, skipped entries, false positives, expectancy, average R, profit factor, max drawdown and sample size.
+- [x] Dedicated 1H calibration runner exists (scripts/calibrate_trade_plan.py) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
+- [x] Calibration is separate from signal generation and uses the causal MTF replay; spread, slippage, commission and point-size assumptions are explicit.
+- [x] Calibration report now includes trade count, skipped signals/rate, losing trades, expectancy in R, average R, profit factor, net PnL, max drawdown, sample-size warning, chronological bar counts and split boundaries.
+- [x] Unit test added for the new calibration diagnostics.
+- [ ] Run the calibration against verified same-feed 4H/1H/15M OHLCV and broker-verified execution costs; inspect the generated report.
+- [ ] Confirm the sealed test is not used to choose or revise parameters; evaluate minimum sample size and robustness across regimes.
+- [ ] Report false positives/trade frequency separately with the price-action setup diagnostic and reconcile definitions before any final acceptance.
 - [ ] Do not optimize on win rate alone; prevent test-set leakage.
 
 ### P2.4 — Out-of-sample and walk-forward
