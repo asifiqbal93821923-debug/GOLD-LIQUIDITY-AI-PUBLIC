@@ -82,10 +82,19 @@ def get_candles(timeframe: str="1h", limit: int=1000, symbol: str="XAUUSD"):
     if timeframe not in TIMEFRAMES: raise HTTPException(400,"Unsupported timeframe")
     if not 1<=limit<=100000: raise HTTPException(400,"limit must be between 1 and 100000")
     rows=STORE.read(symbol.upper(),timeframe,limit)
+    ingest=STORE.latest_ingest(symbol.upper(),timeframe)
+    live=False
+    if ingest and ingest.get("source")=="mt5_bridge":
+        try:
+            updated=datetime.fromisoformat(ingest["updated_at"])
+            live=(datetime.now(timezone.utc)-updated).total_seconds()<=180
+        except (TypeError,ValueError):
+            live=False
     return {"status":"ok" if rows else "not_available","symbol":symbol.upper(),
       "timeframe":timeframe,"count":len(rows),"data":rows,
-      "data_kind":"historical_import","live":False,
-      "message":"Stored historical candles; not a live price feed." if rows else "No candles imported for this symbol/timeframe."}
+      "data_kind":"mt5_bridge" if live else "historical_import","source":ingest.get("source") if ingest else None,
+      "last_updated_at":ingest.get("updated_at") if ingest else None,"live":live,
+      "message":"Recent closed candles from authenticated MT5 bridge." if live else "Stored historical candles; live bridge is not currently fresh." if rows else "No candles imported for this symbol/timeframe."}
 
 @app.post("/api/market/candles/import")
 def import_candles(payload: CandleImportRequest):
