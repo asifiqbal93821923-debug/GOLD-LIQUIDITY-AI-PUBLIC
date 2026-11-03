@@ -35,7 +35,7 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Do not claim parity until fixture comparisons pass.
 
 ### P2.3 — Trade-plan calibration
-- [x] Dedicated 1H calibration runner exists (scripts/calibrate_trade_plan.py) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
+- [x] Dedicated 1H calibration runner exists (`scripts/calibrate_trade_plan.py`) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
 - [x] Calibration is separate from signal generation and uses the causal MTF replay; spread, slippage, commission and point-size assumptions are explicit.
 - [x] Calibration report now includes trade count, skipped signals/rate, losing trades, expectancy in R, average R, profit factor, net PnL, max drawdown, sample-size warning, chronological bar counts and split boundaries.
 - [x] Unit test added for the new calibration diagnostics.
@@ -53,10 +53,14 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Execute all folds and inspect reports on verified same-feed candles with XM360-verified costs; confirm training/test separation from the produced artifact.
 
 ### P2.5 — Realistic execution-cost scenarios
-- [ ] Calibrate point size, spread, slippage and commission from the intended broker's actual contract specification and observed quotes.
-- [ ] Sweep conservative/base/adverse cost scenarios and session/rollover conditions.
-- [ ] Keep spread gate closed until a defensible maximum spread is configured.
-- [ ] Explain that candle OHLC cannot resolve true intrabar execution order; retain conservative assumptions.
+- [x] Add a reproducible base/conservative/adverse execution-cost scenario runner (`scripts/execution_cost_scenarios.py`) using identical causal MTF strategy logic.
+- [x] Validate non-negative cost inputs, positive point size, monotonic stress scenarios and closed-by-default spread gate with unit tests.
+- [x] Emit scenario metrics, cost assumptions, provenance status and explicit OHLC/intrabar execution limitations.
+- [ ] Calibrate point size, spread, slippage and commission from XM360's actual XAUUSD contract specification and observed quotes.
+- [ ] Run all three scenarios on verified same-feed history; inspect trade count, net PnL, average R, profit factor and drawdown.
+- [ ] Validate session/rollover spread and slippage using timestamped broker quote observations; do not infer these from OHLC candles.
+- [ ] Configure a defensible maximum spread from observed quotes; keep the spread gate closed until then.
+- [ ] Retain conservative stop-first handling; candle OHLC cannot resolve true intrabar execution order.
 
 ### P2.6 — Forward/paper validation and release gate
 - [ ] Run a logged paper-forward period after historical gates pass.
@@ -68,7 +72,7 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - No confirmed live MT5 broker feed is currently connected; user has no desktop PC for MetaTrader Desktop testing.
 - Historical store previously returned zero 1H candles in the production API. The public indicative sampled-price archive is not broker OHLCV and must not be converted into synthetic candles. The repository still has no verified same-feed 4H/1H/15M CSV dataset.
 - No TradingView golden fixture package or complete exact Pine source/settings package for PRO XAU V2.0 and Advanced SMC MTF Pro is currently present in the repository; parity execution is blocked until those exports are added.
-- Actual broker spread/commission/slippage contract details have not been calibrated.
+- Actual XM360 spread/commission/slippage and contract point-size details have not been calibrated.
 - OHLCV footprint values are proxies, not real MBO/order-book, true aggressor CVD, open interest or iceberg data.
 
 ## Acceptance rule
