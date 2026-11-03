@@ -26,8 +26,8 @@ function parseCsv(text){
   });
 }
 
-function ChartPanel({timeframe,setTimeframe,candles,loading,onReload}){
-  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null);
+function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report}){
+  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]);
   useEffect(()=>{
     if(!host.current) return;
     const chart=createChart(host.current,{autoSize:true,
@@ -46,6 +46,23 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload}){
     const data=candles.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close}));
     try { seriesRef.current.setData(data); chartRef.current?.timeScale().fitContent(); } catch(e) { console.error('Chart data rejected',e); }
   },[candles]);
+  useEffect(()=>{
+    if(!seriesRef.current) return;
+    priceLinesRef.current.forEach(line=>{try{seriesRef.current.removePriceLine(line);}catch(e){}});
+    priceLinesRef.current=[];
+    const smc=report && report.timeframes && report.timeframes['1h'] && report.timeframes['1h'].smc;
+    if(!smc||smc.status!=='ok') return;
+    const add=(price,title,color,lineStyle=2)=>{
+      if(typeof price!=='number'||!Number.isFinite(price)) return;
+      priceLinesRef.current.push(seriesRef.current.createPriceLine({price,title,color,lineWidth:1,lineStyle,axisLabelVisible:true}));
+    };
+    add(smc.swing_high && smc.swing_high.price,'1H Swing High','#e36c75');
+    add(smc.swing_low && smc.swing_low.price,'1H Swing Low','#42b99b');
+    (smc.active_fvgs||[]).slice(-4).forEach((z,i)=>{add(z.low,'1H FVG '+(i+1)+' L','#6f9fe8',1);add(z.high,'1H FVG '+(i+1)+' H','#6f9fe8',1);});
+    (smc.order_block_candidates||[]).slice(-3).forEach((z,i)=>{const color=z.direction==='bullish'?'#36b995':'#d77b83';add(z.low,'1H OB '+(i+1)+' L',color,2);add(z.high,'1H OB '+(i+1)+' H',color,2);});
+    (smc.equal_high_pools||[]).slice(-3).forEach((z,i)=>add(z.price,'1H EQH '+(i+1),'#d8ad69',1));
+    (smc.equal_low_pools||[]).slice(-3).forEach((z,i)=>add(z.price,'1H EQL '+(i+1),'#d8ad69',1));
+  },[report,candles]);
   return <section className="card chart-card">
     <div className="section-head"><div><span className="eyebrow">PRICE ACTION · XAUUSD</span><h2>Gold Spot <span className="muted">· Main Trading TF: 1H</span></h2></div>
       <span className={'data-pill '+(candles.length?'data-ready':'')}><i/> {candles.length?'HISTORICAL DATA':'NO DATA'}</span></div>
@@ -131,7 +148,7 @@ export default function App(){
       <article className="card metric"><div className="metric-top"><span>5M ENTRY</span><Target size={17}/></div><b>OPTIONAL</b><small>Never owns trade direction</small></article>
     </section>
 
-    <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)}/>
+    <ChartPanel timeframe={tf} setTimeframe={setTf} candles={candles} loading={loading} onReload={()=>loadCandles(tf)} report={report}/>
     <section className="card import-card">
       <div className="section-head"><div><span className="eyebrow">HISTORICAL DATA IMPORT</span><h2>MT5 / CSV Candle Upload</h2></div><Upload size={19}/></div>
       <p>উপরের নির্বাচিত Timeframe-এ CSV Import হবে। Header: <code>time,open,high,low,close,volume</code>। Time Unix seconds/milliseconds অথবা ISO timestamp হতে পারে।</p>
