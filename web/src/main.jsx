@@ -18,11 +18,16 @@ class AppErrorBoundary extends React.Component {
   }
 }
 createRoot(document.getElementById('root')).render(<React.StrictMode><AppErrorBoundary><App /></AppErrorBoundary></React.StrictMode>);
+// Disable the old offline worker while the dashboard stabilizes.
+// Remove stale shell caches left by previous releases; always load the current
+// hashed Vite assets from the network on GitHub Pages.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const workerUrl = new URL(import.meta.env.BASE_URL + 'sw.js', window.location.href).toString();
-    navigator.serviceWorker.register(workerUrl).catch(error => {
-      console.warn('Offline shell registration failed:', error);
-    });
-  });
+  navigator.serviceWorker.getRegistrations()
+    .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+    .catch(error => console.warn('Service worker cleanup:', error));
+}
+if ('caches' in window) {
+  caches.keys()
+    .then(keys => Promise.all(keys.filter(key => key.startsWith('gold-terminal-')).map(key => caches.delete(key))))
+    .catch(error => console.warn('Old app cache cleanup:', error));
 }
