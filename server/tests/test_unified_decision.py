@@ -29,6 +29,11 @@ class UnifiedDecisionTests(unittest.TestCase):
         x=analyze_unified_decision(p)
         self.assertEqual(x["decision"],"WAIT")
         self.assertIn("FOUR_HOUR_MACRO_CONFLICT",x["reason_codes"])
+    def test_ambiguous_1h_structure_waits(self):
+        p=valid_payload(); p["1h_structure"]["direction"]="ambiguous"
+        x=analyze_unified_decision(p)
+        self.assertEqual(x["decision"],"WAIT")
+        self.assertIn("ONE_HOUR_STRUCTURE_AMBIGUOUS",x["reason_codes"])
     def test_15m_setup_must_align(self):
         p=valid_payload(); p["15m_setup"]["direction"]="bearish"
         x=analyze_unified_decision(p)
