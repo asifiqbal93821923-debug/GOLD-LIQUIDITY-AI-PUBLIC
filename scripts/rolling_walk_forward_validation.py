@@ -17,7 +17,7 @@ def _metric_view(report):
     return {key: report.get(key) for key in METRICS}
 
 def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
-                             test_fraction=0.10, mode="anchored",
+                             test_fraction=0.10, holdout_fraction=0.10, mode="anchored",
                              costs=None, settings=None, min_bars=50):
     if folds < 2:
         raise ValueError("folds must be at least 2")
@@ -25,6 +25,8 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
         raise ValueError("train_fraction must be 0.10..0.85")
     if not 0.05 <= test_fraction <= 0.30:
         raise ValueError("test_fraction must be 0.05..0.30")
+    if not 0.05 <= holdout_fraction <= 0.20:
+        raise ValueError("holdout_fraction must be 0.05..0.20")
     if mode not in ("anchored", "rolling"):
         raise ValueError("mode must be anchored or rolling")
     normalized = {}
@@ -42,15 +44,17 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
     n = len(h1)
     train_n = int(n * train_fraction)
     test_n = int(n * test_fraction)
-    if train_n < min_bars or test_n < min_bars or train_n + folds * test_n > n:
+    holdout_n = int(n * holdout_fraction)
+    holdout_start = n - holdout_n
+    if train_n < min_bars or test_n < min_bars or train_n + folds * test_n > holdout_start:
         return {"status": "insufficient_history", "reason": "NOT_ENOUGH_BARS_FOR_FOLDS",
                 "bars_1h": n, "required_train_bars": min_bars,
                 "required_test_bars_per_fold": min_bars,
-                "requested_train_bars": train_n, "requested_test_bars_per_fold": test_n,
+                "requested_train_bars": train_n, "requested_test_bars_per_fold": test_n, "sealed_holdout_bars": holdout_n,
                 "folds": folds}
     # Test windows are disjoint and chronological. Anchored training starts at
     # dataset start; rolling training uses a fixed train_n lookback.
-    first_test = n - folds * test_n
+    first_test = holdout_start - folds * test_n
     fold_results = []
     for i in range(folds):
         test_start = first_test + i * test_n
@@ -86,6 +90,16 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
             "train": _metric_view(train_report), "out_of_sample": _metric_view(test_report),
             "test_veto_counts": test_report.get("veto_counts"),
         })
+    # The final holdout is excluded from every fold's training and OOS windows.
+    holdout_boundary = h1[holdout_start]["time"]
+    holdout_end = h1[-1]["time"] + 3600
+    holdout_frames = {tf: [r for r in rows if holdout_boundary <= r["time"] < holdout_end]
+                      for tf, rows in normalized.items()}
+    holdout_counts = {tf: len(holdout_frames.get(tf, [])) for tf in REQUIRED}
+    if any(v < min_bars for v in holdout_counts.values()):
+        return {"status": "insufficient_history", "reason": "SEALED_HOLDOUT_TIMEFRAME_MINIMUM_FAILED",
+                "holdout_bars": holdout_counts}
+    holdout_report = run_gold_mtf_backtest(holdout_frames, costs=costs, settings=settings)
     valid = [f for f in fold_results if f["test_status"] == "ok"]
     all_oos_trades = sum((f["out_of_sample"].get("trade_count") or 0) for f in valid)
     all_oos_signals = sum((f["out_of_sample"].get("signals_evaluated") or 0) for f in valid)
@@ -98,16 +112,17 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
         "status": "ok" if len(valid) == folds else "partial",
         "method": f"{mode} walk-forward; disjoint chronological OOS windows; fixed parameters and costs",
         "fold_count": folds, "mode": mode, "train_fraction_of_total": train_fraction,
-        "test_fraction_per_fold": test_fraction, "min_bars_per_timeframe_per_partition": min_bars,
+        "test_fraction_per_fold": test_fraction, "sealed_holdout_fraction": holdout_fraction, "min_bars_per_timeframe_per_partition": min_bars,
         "feed_provenance": {"source": provenance.get("source"), "symbol": provenance.get("symbol")},
         "fixed_costs": costs or {}, "fixed_settings": settings or {},
         "folds": fold_results,
+        "sealed_holdout": {"start_epoch": holdout_boundary, "end_exclusive_epoch": holdout_end, "bars": holdout_counts, "status": holdout_report.get("status"), "metrics": _metric_view(holdout_report), "veto_counts": holdout_report.get("veto_counts")},
         "aggregate_oos": {"completed_folds": len(valid), "trade_count": all_oos_trades,
                           "signals_evaluated": all_oos_signals, "net_pnl_price": all_oos_pnl,
                           "losing_or_zero_trade_or_nonpositive_folds": losing_or_zero},
         "leakage_controls": {"train_test_overlap": False, "oos_windows_disjoint": True,
                              "training_trades_counted_as_oos": False,
-                             "test_results_used_for_parameter_selection": False},
+                             "test_results_used_for_parameter_selection": False, "sealed_holdout_excluded_from_all_fold_training": True, "sealed_holdout_evaluated_once": True},
         "warning": "Walk-forward evidence is only as valid as the supplied same-feed data and broker costs. It is not a profitability guarantee."
     }
 
@@ -117,6 +132,7 @@ def main():
     ap.add_argument("--folds", type=int, default=4)
     ap.add_argument("--train-fraction", type=float, default=.12)
     ap.add_argument("--test-fraction", type=float, default=.10)
+    ap.add_argument("--holdout-fraction", type=float, default=.10)
     ap.add_argument("--mode", choices=("anchored", "rolling"), default="rolling")
     ap.add_argument("--spread-points", type=float, required=True)
     ap.add_argument("--slippage-points", type=float, required=True)
@@ -129,7 +145,7 @@ def main():
     costs = {"spread_points": a.spread_points, "slippage_points": a.slippage_points,
              "commission_points_per_side": a.commission_points_per_side, "point_size": a.point_size}
     result = run_rolling_walk_forward(frames, folds=a.folds, train_fraction=a.train_fraction,
-                                      test_fraction=a.test_fraction, mode=a.mode, costs=costs)
+                                      test_fraction=a.test_fraction, holdout_fraction=a.holdout_fraction, mode=a.mode, costs=costs)
     raw = json.dumps(result, indent=2)
     if a.output:
         Path(a.output).parent.mkdir(parents=True, exist_ok=True)
