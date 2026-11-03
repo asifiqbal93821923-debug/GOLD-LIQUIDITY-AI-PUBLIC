@@ -147,7 +147,7 @@ def analyze_smc_structure(candles: list[dict[str,Any]], settings: dict[str,Any] 
                             "formed_index":j,"start_time":_epoch(r.get("time")),"zone_type":"order_block"})
                 break
     for z in obs:
-        later=rows[next((i for i,r in enumerate(rows) if _epoch(r.get("time"))==z.get("start_time")),len(rows)-1)+1:]
+        later=rows[z["formed_index"]+1:]
         touched=any(r["low"]<=z["high"] and r["high"]>=z["low"] for r in later)
         broken=any((z["direction"]=="bullish" and r["close"]<z["low"]) or
                    (z["direction"]=="bearish" and r["close"]>z["high"]) for r in later)
