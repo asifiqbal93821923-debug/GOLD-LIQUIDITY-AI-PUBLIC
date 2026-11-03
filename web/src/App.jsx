@@ -7,7 +7,7 @@ const labels={ '5m':'5 মিনিট','15m':'১৫ মিনিট','30m':'�
 const API='';
 
 function parseCsv(text){
-  const lines=text.replace(/^\\uFEFF/,'').trim().split(/\\r?\\n/).filter(Boolean);
+  const lines=text.replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
   if(lines.length<2) throw new Error('CSV-তে Header ও অন্তত একটি Candle থাকতে হবে।');
   const first=lines[0];
   const delimiter=[';',',','\\t'].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
