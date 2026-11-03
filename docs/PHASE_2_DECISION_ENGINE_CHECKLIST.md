@@ -27,7 +27,7 @@ Started: 2026-11-03
 - [x] Confirmed the public feed is sampled indicative spot data at roughly 5-minute intervals, with an upstream maximum history of 48 hours; it is not broker Bid/Ask or traded OHLCV.
 - [x] Calculated the theoretical maximum from 48 hours: 12 x 4H bars, 48 x 1H bars and 192 x 15M bars (before missing samples). The MTF replay requires at least 50 fully closed bars in each of 4H, 1H and 15M.
 - [x] Confirmed the current available history therefore cannot satisfy the MTF backtest minimum. No genuine historical MTF performance, calibration or walk-forward result can be calculated from this dataset.
-- [ ] Obtain at least 100 closed bars per timeframe from the same XAUUSD TradingView/broker feed (more history preferred), including exact Pine script version and inputs.
+- [ ] Obtain aligned same-feed history sufficient for >=50 closed bars in 4H/1H/15M in every chronological partition (aim approximately 250 4H, 1,000 1H, 4,000 15M bars), plus exact Pine script version and inputs.
 - [ ] Compare 1H direction and plan against actual TradingView reference fixtures.
 - [ ] Calibrate the 1H structural/ATR entry, SL and TP proposal on genuine historical OHLC data.
 - [ ] Run walk-forward and out-of-sample tests with realistic spread, slippage and commission.
