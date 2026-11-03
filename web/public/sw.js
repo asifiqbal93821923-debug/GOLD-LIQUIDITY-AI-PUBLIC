@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gold-terminal-shell-v2';
+const CACHE_NAME = 'gold-terminal-shell-v3';
 const BASE = new URL('./', self.registration.scope);
 const SHELL = [BASE.href, new URL('manifest.webmanifest', BASE).href, new URL('icon.svg', BASE).href];
 self.addEventListener('install', event => {
