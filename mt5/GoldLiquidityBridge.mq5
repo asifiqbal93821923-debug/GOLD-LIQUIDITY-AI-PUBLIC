@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.00"
+#property version   "1.01"
 #property description "Pushes CLOSED XAUUSD candles from MT5 to Project Indicator App."
 
 input string InpApiBaseUrl = "http://127.0.0.1:8765";
@@ -85,11 +85,19 @@ bool SendTimeframe(ENUM_TIMEFRAMES tf)
 bool SendQuote()
 {
    MqlTick tick;
-   if(!SymbolInfoTick(InpSymbol,tick)) return false;
+   if(!SymbolInfoTick(InpSymbol,tick))
+   {
+      Print("MT5 bridge: no broker tick for ",InpSymbol,". Check Market Watch and symbol trading session.");
+      return false;
+   }
    double bid=tick.bid;
    double ask=tick.ask;
    double point=SymbolInfoDouble(InpSymbol,SYMBOL_POINT);
-   if(bid<=0 || ask<bid || point<=0 || tick.time_msc<=0) return false;
+   if(bid<=0 || ask<bid || point<=0 || tick.time_msc<=0)
+   {
+      Print("MT5 bridge: invalid quote fields for ",InpSymbol);
+      return false;
+   }
    int digits=(int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS);
    long tick_epoch=(long)(tick.time_msc/1000);
    string body=StringFormat("{\"symbol\":\"XAUUSD\",\"time\":%I64d,\"bid\":%s,\"ask\":%s,\"point\":%s}",
@@ -121,6 +129,11 @@ void PushAll()
 
 int OnInit()
 {
+   if(StringLen(InpApiBaseUrl)<8 || InpBarsToSend<50 || InpTimerSeconds<15)
+   {
+      Print("Set a valid API URL, at least 50 candles, and timer >= 15 seconds.");
+      return INIT_PARAMETERS_INCORRECT;
+   }
    if(InpBridgeToken=="SET_THE_SAME_SERVER_MARKET_INGEST_TOKEN" || StringLen(InpBridgeToken)<16)
    {
       Print("Set a strong InpBridgeToken matching the server MARKET_INGEST_TOKEN (at least 16 characters).");
