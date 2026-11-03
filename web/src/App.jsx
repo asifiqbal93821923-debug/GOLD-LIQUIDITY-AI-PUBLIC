@@ -52,12 +52,18 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
     if(!seriesRef.current) return;
     priceLinesRef.current.forEach(line=>{try{seriesRef.current.removePriceLine(line);}catch(e){}});
     priceLinesRef.current=[];
-    const smc=report && report.timeframes && report.timeframes['1h'] && report.timeframes['1h'].smc;
-    if(!smc||smc.status!=='ok') return;
+    const frames=report && report.timeframes;
+    const smc=frames && frames['1h'] && frames['1h'].smc;
+    const macro=frames && frames['4h'] && frames['4h'].smc;
     const add=(price,title,color,lineStyle=2)=>{
       if(typeof price!=='number'||!Number.isFinite(price)) return;
       priceLinesRef.current.push(seriesRef.current.createPriceLine({price,title,color,lineWidth:1,lineStyle,axisLabelVisible:true}));
     };
+    if(macro&&macro.status==='ok'){
+      add(macro.swing_high&&macro.swing_high.price,'4H Macro High','#c88b55',2);
+      add(macro.swing_low&&macro.swing_low.price,'4H Macro Low','#66a6a0',2);
+    }
+    if(!smc||smc.status!=='ok') return;
     add(smc.swing_high && smc.swing_high.price,'1H Swing High','#e36c75');
     add(smc.swing_low && smc.swing_low.price,'1H Swing Low','#42b99b');
     (smc.active_fvgs||[]).slice(-4).forEach((z,i)=>{add(z.low,'1H FVG '+(i+1)+' L','#6f9fe8',1);add(z.high,'1H FVG '+(i+1)+' H','#6f9fe8',1);});
@@ -243,7 +249,7 @@ export default function App(){
 
     <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
-        <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
+        <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>4H macro swing high/low plus 1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
         <div className="empty-state"><Radio size={22}/><b>{config?.live_data?'MT5 Bridge Connected':'Live feed not connected'}</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Commission and slippage model remain pending.</span></div></article>
     </section>
