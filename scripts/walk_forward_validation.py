@@ -1,0 +1,52 @@
+"""Chronological walk-forward harness for exported MTF candle JSON.
+
+Input JSON: {"4h":[OHLC rows],"1h":[...],"15m":[...],"5m":[...]}.
+This evaluates a fixed configuration on train and later unseen test windows;
+it does not optimize parameters or claim parity.
+"""
+from __future__ import annotations
+import argparse,json
+from pathlib import Path
+from server.multitimeframe_backtest import run_gold_mtf_backtest
+from server.market_data import validate_candles
+
+def metrics(report):
+    keys=("trade_count","win_rate_pct","net_pnl_price","average_R","profit_factor","max_drawdown_price","accepted_signals","signals_evaluated")
+    return {k:report.get(k) for k in keys}
+
+def run_walk_forward(frames,train_fraction=0.70,costs=None,settings=None):
+    if not 0.5<=train_fraction<=0.9: raise ValueError("train_fraction must be 0.50..0.90")
+    normalized={tf:validate_candles(rows) for tf,rows in frames.items() if rows}
+    for tf in ("4h","1h","15m"):
+        if tf not in normalized or len(normalized[tf])<120:
+            return {"status":"insufficient_history","timeframe":tf,
+              "required_minimum_for_walk_forward":120,"received":len(normalized.get(tf,[]))}
+    # Chronological boundary anchored to 1H bars; each TF is partitioned by timestamp.
+    h1=normalized["1h"]; cut_index=int(len(h1)*train_fraction)
+    boundary=h1[cut_index]["time"]
+    train={tf:[x for x in rows if x["time"]<boundary] for tf,rows in normalized.items()}
+    test={tf:[x for x in rows if x["time"]>=boundary] for tf,rows in normalized.items()}
+    train_report=run_gold_mtf_backtest(train,costs=costs,settings=settings)
+    test_report=run_gold_mtf_backtest(test,costs=costs,settings=settings)
+    return {"status":"ok" if train_report.get("status")=="ok" and test_report.get("status")=="ok" else "blocked",
+      "method":"chronological holdout; fixed parameters; no future bars passed across split",
+      "train_fraction":train_fraction,"boundary_epoch":boundary,
+      "train":metrics(train_report),"out_of_sample":metrics(test_report),
+      "train_status":train_report.get("status"),"out_of_sample_status":test_report.get("status"),
+      "train_veto_counts":train_report.get("veto_counts"),
+      "out_of_sample_veto_counts":test_report.get("veto_counts"),
+      "warning":"This is a fixed-parameter chronological holdout, not parameter optimization. Minimum 120 bars/timeframe is a floor, not a statistically sufficient sample. Costs must reflect the target broker."}
+
+def main():
+    ap=argparse.ArgumentParser(); ap.add_argument("--input",required=True); ap.add_argument("--output")
+    ap.add_argument("--train-fraction",type=float,default=.70)
+    ap.add_argument("--spread-points",type=float,required=True); ap.add_argument("--slippage-points",type=float,required=True)
+    ap.add_argument("--commission-points-per-side",type=float,default=0); ap.add_argument("--point-size",type=float,default=.01)
+    a=ap.parse_args(); frames=json.loads(Path(a.input).read_text(encoding="utf-8"))
+    costs={"spread_points":a.spread_points,"slippage_points":a.slippage_points,
+      "commission_points_per_side":a.commission_points_per_side,"point_size":a.point_size}
+    result=run_walk_forward(frames,a.train_fraction,costs)
+    raw=json.dumps(result,indent=2)
+    if a.output: Path(a.output).write_text(raw+"\\n",encoding="utf-8")
+    print(raw)
+if __name__=="__main__": main()
