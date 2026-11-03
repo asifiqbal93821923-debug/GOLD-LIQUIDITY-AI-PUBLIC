@@ -85,7 +85,8 @@ export default function App(){
   const [counts,setCounts]=useState({});
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
-  const [report,setReport]=useState(null);\n  const [quoteInfo,setQuoteInfo]=useState(null);
+  const [report,setReport]=useState(null);
+  const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
   const fileRef=useRef(null);
 
