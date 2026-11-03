@@ -151,7 +151,8 @@ export default function App(){
       setBacktest(data);
     }catch(e){setMessage('Backtest Error: '+e.message);}
   };
-\n  const decision=report?.decision||{};
+
+  const decision=report?.decision||{};
   const plan=decision.trade_plan;
   return <main className="shell">
     <header className="topbar"><div className="brand"><div className="brand-mark"><BarChart3 size={21}/></div><div><b>PROJECT INDICATOR APP</b><small>GOLD MARKET INTELLIGENCE</small></div></div>
@@ -202,7 +203,8 @@ export default function App(){
           <small>{backtest.scope_warning}</small>
         </div>}
     </section>
-\n    <section className="lower-grid">
+
+    <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
         <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
