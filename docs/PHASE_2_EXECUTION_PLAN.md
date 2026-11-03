@@ -29,10 +29,13 @@ Turn the existing 4H/1H/15M/optional-5M analysis foundation into a reproducible,
 - [ ] Run the quality audit against the real imported dataset and review session/weekend gaps before replay.
 
 ### P2.2 — Pine reference parity
+- [x] Hardened the parity CLI so final acceptance requires exact TradingView/Python metadata, a non-empty settings manifest, exact per-bar timestamps/signals, and at least one comparable value for each requested numeric series; added regression tests for missing metadata and empty numeric series.
 - [ ] Export TradingView golden fixtures from the exact supplied Pine versions and settings.
 - [ ] Compare Alpha, SMC, WSB and AI Channels outputs candle-by-candle.
 - [ ] Fix and document mismatches; keep source-parity and corrected variants distinct.
 - [ ] Do not claim parity until fixture comparisons pass.
+
+P2.2 implementation status: comparator and software guard are implemented and covered by unit tests. **Empirical Pine parity is still pending**; no P2.2 engine is accepted until exact TradingView source/settings and closed-bar golden exports are compared candle-by-candle.
 
 ### P2.3 — Trade-plan calibration
 - [x] Dedicated 1H calibration runner exists (`scripts/calibrate_trade_plan.py`) with 48 deterministic ATR/structure/entry-width/TP-R candidates; selection uses train + validation only and touches the sealed test once.
