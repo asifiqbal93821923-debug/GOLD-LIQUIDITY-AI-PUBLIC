@@ -30,12 +30,12 @@ jobs:
         run: python scripts/collect_free_xau.py
       - name: Commit updated public snapshot
         run: |
-          if git diff --quiet -- web/public/data/market-snapshot.json; then
+          if git diff --quiet -- web/public/data/market-snapshot.json web/public/data/market-history.json && [ -z "$(git ls-files --others --exclude-standard web/public/data/market-snapshot.json web/public/data/market-history.json)" ]; then
             echo "No data changes; skipping commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/public/data/market-snapshot.json
+          git add web/public/data/market-snapshot.json web/public/data/market-history.json
           git commit -m "chore(data): refresh free XAUS sampled snapshot"
           git push
