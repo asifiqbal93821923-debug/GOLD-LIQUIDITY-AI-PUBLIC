@@ -13,7 +13,7 @@
 - [x] Receive complete LuxAlgo AI Channels (Clustering) source; document algorithm, license and caveats.
 - [x] Create unified engine feature-selection and architecture blueprint.
 - [x] Add initial WAIT-first confluence decision gate and API contract.
-- [x] Upgrade decision gate to 4H macro / 1H primary / 15M structure / 5M trigger, with channel-conflict and ambiguous-liquidity vetoes.
+- [x] Upgrade decision gate to 4H macro / 1H primary trade plan / 15M setup / optional 5M entry refinement, with channel-conflict and ambiguous-liquidity vetoes.
 - [x] Add isolated SMC, WSB and AI Channels OHLCV adapters (conservative first implementations; not full Pine ports or parity-certified).
 - [x] Compose Alpha + SMC + WSB + AI Channels + liquidity proxy in Gold Report AI orchestration.
 - [x] Add first OHLCV-based institutional liquidity/footprint proxy module and Gold Report AI API contract.
@@ -26,7 +26,7 @@
 
 ## Phase 3 — Chart and market structure
 - [ ] Render real OHLC candles on the chart for 5m, 15m, 30m, 1h, 4h and 1D.
-- [ ] Make 1H the primary analysis timeframe; 4H macro confirmation; 15m setup; 5m execution confirmation.
+- [ ] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
 - [ ] Keep 1H/4H zones fixed when viewing 3m/5m charts; map by timestamps and price, not chart-local pivots.
 - [ ] Add confirmed swing structure, BOS/CHoCH, support/resistance and candle-derived supply/demand.
 - [ ] Add EQH/EQL, confirmed FVG, prior D/W/M levels and liquidity sweep estimates.
@@ -34,7 +34,7 @@
 
 ## Phase 4 — Trade planning and validation
 - [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
-- [ ] Add entry trigger, invalidation, SL, TP1/TP2/TP3 and R-multiple planner.
+- [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
 - [ ] Add spread, commission, slippage and session sensitivity to reports.
 - [ ] Run historical replay, backtests, walk-forward tests and anti-repainting checks.
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
@@ -54,7 +54,7 @@
 - [x] Alpha Signal Engine initial port, endpoint and basic tests.
 - [x] SMC, WSB and AI Channels first isolated OHLCV adapters with tests (not full Pine parity ports).
 - [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
-- [x] Hierarchical 4H/1H/15M/5M WAIT-first Decision Engine connected to calculated outputs.
+- [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
 - [x] Unified architecture and implementation status documented.
 - [ ] No production market feed, certified Pine parity, fully calculated trade planner, live MBO/CVD/OI feed, or Android package yet.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
