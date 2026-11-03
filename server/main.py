@@ -214,7 +214,9 @@ def gold_report_analysis(payload: GoldReportRequest):
     spread_ok=False
     if quote and quote.get("source")=="mt5_bridge":
         try:
-            quote_recent=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()<=180
+            quote_age=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()
+            tick_age=now.timestamp()-float(quote["quote_time"])
+            quote_recent=(0<=quote_age<=180 and -5<=tick_age<=180)
             max_spread=float(os.getenv("MAX_SPREAD_POINTS","0"))
             spread_ok=bool(quote_recent and max_spread>0 and quote["spread_points"]<=max_spread)
         except (TypeError,ValueError):
