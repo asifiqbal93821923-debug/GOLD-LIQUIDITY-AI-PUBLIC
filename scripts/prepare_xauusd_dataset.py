@@ -113,6 +113,29 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     required = ("4h", "1h", "15m")
     missing = [tf for tf in required if not frames[tf]]
     too_short = {tf: len(frames[tf]) for tf in required if len(frames[tf]) < 250}
+    partition_counts: dict[str, dict[str, int]] = {}
+    short_partitions: dict[str, dict[str, int]] = {}
+    if not missing and len(frames["1h"]) >= 3:
+        h1 = frames["1h"]
+        cut1 = int(len(h1) * 0.60)
+        cut2 = int(len(h1) * 0.80)
+        boundary1 = int(h1[cut1]["time"])
+        boundary2 = int(h1[cut2]["time"])
+        for split, predicate in (
+            ("train", lambda row, duration: row["time"] + duration <= boundary1),
+            ("validation", lambda row, duration: row["time"] >= boundary1 and row["time"] + duration <= boundary2),
+            ("test", lambda row, duration: row["time"] >= boundary2),
+        ):
+            partition_counts[split] = {
+                tf: sum(1 for row in frames[tf] if predicate(row, DURATIONS[tf]))
+                for tf in required
+            }
+            short = {tf: count for tf, count in partition_counts[split].items() if count < 50}
+            if short:
+                short_partitions[split] = short
+    else:
+        short_partitions = {"all": {tf: 0 for tf in required}}
+    ready = not missing and not too_short and not short_partitions
     return {
         "metadata": {
             "instrument": "XAUUSD",
@@ -125,9 +148,11 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
             "provenance_note": "Source/symbol labels are operator assertions. Verify they match the TradingView chart header before accepting parity results.",
         },
         "data_quality": {
-            "status": "ready_for_60_20_20_validation" if not missing and not too_short else "insufficient_or_missing_history",
+            "status": "ready_for_60_20_20_validation" if ready else "insufficient_or_missing_history",
             "missing_required_timeframes": missing,
             "timeframes_below_250_bars": too_short,
+            "partition_counts": partition_counts,
+            "partitions_below_50_bars": short_partitions,
             "manifest": manifest,
         },
         **frames,
