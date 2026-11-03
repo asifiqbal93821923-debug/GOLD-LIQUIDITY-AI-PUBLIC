@@ -26,5 +26,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: python -m pip install -r server/requirements.txt
       - run: python -m py_compile server/main.py server/alpha_signal.py
       - run: python -m unittest discover -s server/tests -v
