@@ -19,3 +19,15 @@
 .backtest-note{font-size:10px;line-height:1.7;color:#91a0b5}.cost-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.cost-inputs label{display:flex;flex-direction:column;gap:6px;font-size:9px;color:#8293a8}.cost-inputs input{min-width:0;width:100%;background:#0d1420;color:#d6deea;border:1px solid #2b394b;border-radius:6px;padding:8px;font:11px 'DM Mono',monospace}.backtest-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px 0}.backtest-results>div{background:#111b29;border:1px solid #27374b;border-radius:7px;padding:10px;display:flex;flex-direction:column;gap:5px}.backtest-results small{font:9px 'DM Mono',monospace;color:#8293a8}.backtest-results b{font:600 16px 'DM Mono',monospace;color:#d6deea}.backtest-results p{grid-column:1/-1;color:#91a0b5;font-size:10px;line-height:1.7}@media(max-width:760px){.cost-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.backtest-results{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .backtest-actions{display:flex;gap:8px;flex-wrap:wrap}.action-btn.secondary{background:transparent;color:#d6deea;border-color:#46566c}.action-btn.secondary:hover{background:#1a2738}.mtf-backtest{margin-top:16px;padding:13px;border:1px solid #34465c;border-radius:8px;background:#101a28;display:flex;flex-direction:column;gap:9px}.mtf-backtest>b{font:10px 'DM Mono',monospace;color:#d7b77e;letter-spacing:.04em}.mtf-backtest>small{font-size:10px;line-height:1.6;color:#91a0b5}.mtf-backtest .backtest-grid{padding:0}
+
+/* Timestamped multi-timeframe SMC zone overlays */
+.chart-host{position:relative;overflow:hidden}
+.zone-overlay{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.zone-rect{position:absolute;border:1px solid;border-left-width:2px;border-right:0;border-radius:3px 0 0 3px;box-sizing:border-box;min-height:2px}
+.zone-rect span{position:absolute;left:4px;top:2px;font:8px 'DM Mono',monospace;letter-spacing:.04em;white-space:nowrap;text-shadow:0 1px 2px #07101a}
+.zone-radar-list{display:flex;flex-direction:column;gap:7px;margin-top:13px;max-height:260px;overflow:auto}
+.zone-radar-row{display:flex;flex-direction:column;gap:4px;padding:9px 10px;border:1px solid #2b394b;border-radius:7px;background:#0c1420}
+.zone-radar-row b{font:9px 'DM Mono',monospace;color:#d9b77e}
+.zone-radar-row span{font:9px 'DM Mono',monospace;color:#9eb1c7}
+.zone-radar-row small,.zone-disclaimer{font-size:9px;color:#7e8fa4;line-height:1.6}
+.zone-disclaimer{display:block;margin-top:10px}
