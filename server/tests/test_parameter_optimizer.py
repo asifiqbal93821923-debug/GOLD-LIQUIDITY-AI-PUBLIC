@@ -4,6 +4,8 @@ from scripts.optimize_alpha_settings import (
     parameter_candidates,
     robust_score,
     split_chronologically,
+    BASE_ALPHA,
+    TUNING_AXES,
 )
 
 
@@ -15,7 +17,7 @@ class ParameterOptimizerTests(unittest.TestCase):
         self.assertEqual(len(a), 100)
         self.assertEqual(a[0]["atr_period"], 14)
         self.assertEqual(a[0]["band_multiplier"], 3.0)
-
+        changed = {k for candidate in a[1:] for k, v in candidate.items() if v != BASE_ALPHA[k]}\n        self.assertEqual(changed, set(TUNING_AXES))\n
     def test_candidate_limit_is_enforced(self):
         with self.assertRaises(ValueError):
             parameter_candidates(501)
