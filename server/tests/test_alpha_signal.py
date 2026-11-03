@@ -1,5 +1,5 @@
 import unittest
-from alpha_signal import analyze_alpha_signal
+from server.alpha_signal import analyze_alpha_signal
 
 def sample_candles(n=420):
     rows=[]
