@@ -1,5 +1,5 @@
 import unittest
-from scripts.execution_cost_scenarios import build_scenarios, run_cost_scenarios
+from scripts.execution_cost_scenarios import build_scenarios, run_cost_scenarios\nfrom server.multitimeframe_backtest import _spread_is_acceptable
 
 class ExecutionCostScenarioTests(unittest.TestCase):
     def test_three_scenarios_are_monotonic(self):
@@ -14,6 +14,19 @@ class ExecutionCostScenarioTests(unittest.TestCase):
             build_scenarios(-1, 0, 0, 0.01, 10)
         with self.assertRaises(ValueError):
             build_scenarios(1, 0, 0, 0, 10)
+
+    def test_spread_gate_fails_closed_until_positive_limit_exists(self):
+        self.assertFalse(_spread_is_acceptable({"require_spread_limit": True,
+                                                "max_spread_points": 0, "spread_points": 5}))
+        self.assertFalse(_spread_is_acceptable({"require_spread_limit": True,
+                                                "max_spread_points": 4, "spread_points": 5}))
+        self.assertTrue(_spread_is_acceptable({"require_spread_limit": True,
+                                               "max_spread_points": 5, "spread_points": 5}))
+        self.assertTrue(_spread_is_acceptable({"spread_points": 50}))
+
+    def test_non_finite_costs_are_rejected(self):
+        with self.assertRaises(ValueError):
+            build_scenarios(float("nan"), 0, 0, 0.01, 10)
 
     def test_missing_data_stays_partial_and_unverified(self):
         out = run_cost_scenarios({}, spread=10, slippage=2, commission=0,
