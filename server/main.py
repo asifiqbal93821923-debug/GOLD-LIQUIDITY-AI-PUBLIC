@@ -29,7 +29,7 @@ app.add_middleware(CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,https://asifiqbal93821923-debug.github.io").split(",") if origin.strip()],
     allow_credentials=True, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
-STORE = CandleStore(os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
+STORE = CandleStore(os.getenv("DATABASE_URL") or os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3"))
 TIMEFRAMES = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1D"}
 
 TF_SECONDS={"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"4h":14400,"1D":86400}
@@ -146,7 +146,7 @@ def config_status():
       "bridge_token_configured":bool(os.getenv("MARKET_INGEST_TOKEN")),
       "live_data":live,"fresh_closed_timeframes":{tf:x["fresh"] for tf,x in bars.items()},
       "timeframe_health":bars,"quote":quote,
-      "spread_acceptable":quote["acceptable"],"last_ingest":latest,"historical_store":"sqlite",
+      "spread_acceptable":quote["acceptable"],"last_ingest":latest,"historical_store":STORE.backend,
       "message":"Fresh MT5 candles and broker quote are being received." if live else "Historical data is available; one or more MT5 candle timeframes or the actual broker tick is stale/missing.",
       "checked_at":now.isoformat()}
 
