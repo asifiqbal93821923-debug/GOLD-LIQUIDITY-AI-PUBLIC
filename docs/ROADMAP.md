@@ -1,69 +1,77 @@
-# Development Roadmap
+# Development Roadmap — XAUUSD Gold Report AI
 
-## Phase 1 — Market data foundation
-- [x] Implement authenticated MT5 Expert Advisor bridge endpoint, EA source and setup guide.
-- [ ] Configure the user's server token, install EA in MT5 desktop and verify fresh broker candles.
-- [ ] Confirm the execution reference feed and broker symbol/session semantics.
-- [x] Add a persistent SQLite historical-candle store and validated JSON import/retrieval API; keep secrets server-side. (Historical import only; provider adapter/live feed remains pending)
-- [ ] Validate XAUUSD symbol mapping, timezone, session gaps, candle boundaries and volume semantics.
-- [x] Load user-imported historical candles through API without fabricating data.
-- [ ] Connect a licensed/provider historical source and stream live updates.
+Last reconciled: 2026-11-03
 
-## Phase 2 — Pine parity and engine registry
-- [x] Receive Alpha Signal Engine Pro source; create initial Python port, API contract and basic tests.
-- [x] Receive complete LuxAlgo Smart Money Concepts source and complete source-level audit.
-- [x] Receive complete Wick Sequence Breakout (WSB) source; document logic, license and caveats.
-- [x] Receive complete LuxAlgo AI Channels (Clustering) source; document algorithm, license and caveats.
-- [x] Create unified engine feature-selection and architecture blueprint.
-- [x] Add initial WAIT-first confluence decision gate and API contract.
-- [x] Upgrade decision gate to 4H macro / 1H primary trade plan / 15M setup / optional 5M entry refinement, with channel-conflict and ambiguous-liquidity vetoes.
-- [x] Add isolated SMC, WSB and AI Channels OHLCV adapters (conservative first implementations; not full Pine ports or parity-certified).
-- [x] Compose Alpha + SMC + WSB + AI Channels + liquidity proxy in Gold Report AI orchestration.
-- [x] Add first OHLCV-based institutional liquidity/footprint proxy module and Gold Report AI API contract.
-- [ ] Add licensed live order-book/MBO and trade-print provider adapter; current order-book fields remain unavailable.
-- [ ] Implement true order-level iceberg, aggressor-side CVD, open-interest and large-print feeds.
-- [ ] Build TradingView-exported golden OHLCV fixtures and certify parity per engine.
-- [ ] Fix SMC MTF lookahead/repainting risk, array-removal behavior and unbounded history retention in corrected mode.
-- [x] Integrate initial calculated engine outputs with conservative WAIT-first hierarchy and correlated context vetoes.
-- [ ] Calibrate evidence weights and confidence only after walk-forward/out-of-sample testing.
+## A. Market data and MT5 connectivity
 
-## Phase 3 — Chart and market structure
-- [x] Render imported historical OHLC candles on the chart for supported timeframes; live candles remain pending.
-- [x] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
-- [x] Keep 4H/1H swing price levels anchored across 3m/5m/15m/1h chart views.\n- [ ] Render full shaded 4H/1H zones with timestamp lifecycle, mitigation and invalidation state.
-- [x] Add initial 1H swing high/low, FVG, OB-candidate and EQH/EQL price-line overlays to the main chart (candidate levels; full zone rendering/validation pending).
-- [ ] Add EQH/EQL, confirmed FVG, prior D/W/M levels and liquidity sweep estimates.
-- [x] Keep initial 1H SMC markings on the main candlestick chart; no separate lower pane. Full shaded zones and all timeframe anchors remain pending.
+- [x] SQLite candle database with validated historical OHLCV import/retrieval.
+- [x] CSV import from the dashboard; no synthetic/demo prices are fabricated.
+- [x] Authenticated MT5 EA candle bridge for closed 4H, 1H, 15M and 5M candles.
+- [x] MT5 Bid/Ask quote bridge with actual last-tick timestamp.
+- [x] Server freshness checks: recent candle ingestion plus actual quote tick age; configurable `MAX_SPREAD_POINTS` hard gate.
+- [x] MT5 setup instructions and Docker environment template.
+- [ ] User must configure a private server token and install/compile the EA in MT5 desktop or VPS.
+- [ ] Verify broker symbol suffix, server timezone, candle boundaries, session gaps and volume semantics with the user's real feed.
+- [ ] Activate a licensed external feed only if MT5 bridge is unsuitable; no external provider credentials are configured.
 
-## Phase 4 — Trade planning and validation
-- [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
-- [x] Add initial 1H structural/ATR entry zone, invalidation, SL and TP1/TP2/TP3 proposal (not calibrated or backtest-validated).
-- [x] Add MT5 Bid/Ask quote ingestion and configurable MAX_SPREAD_POINTS hard gate.
-- [x] Add editable spread, slippage and commission assumptions to the research-only 1H Alpha backtest UI/API.\n- [ ] Add multi-scenario cost and session sensitivity reports.
-- [x] Add a research-only 1H Alpha flip replay with next-bar entry, cost assumptions, partial targets and conservative stop-first same-bar handling.\n- [x] Add a causal 4H/1H/15M/optional-5M Gold Report replay endpoint and UI; each signal only sees fully closed timeframe bars available at its 1H close.
-- [x] Implement first causal multi-timeframe Gold Report historical replay using the current Python adapters.\n- [ ] Validate full MTF replay against TradingView golden fixtures, then run walk-forward/out-of-sample and anti-repainting checks.
-- [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
+## B. Indicator engines and Decision Engine
 
-## Phase 5 — Web and Android delivery
-- [x] Add MT5 EA-to-API candle bridge source and authenticated ingestion endpoint.
-- [ ] Activate and verify the bridge with the user's MT5 terminal and server token; no live data is connected until this setup is completed.
-- [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
-- [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
-- [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.
-- [x] Add Bengali-first 1H trade report, data status, quote/spread status and research backtest panels.\n- [ ] Complete full interactive zone/risk panels and Bengali explanations for each engine/evidence item.
-- [x] Add PWA manifest, mobile metadata, icon, service-worker registration and offline app-shell cache (market data remains online; device install not yet manually verified).
-- [ ] Android packaging only after web core, feed and validation are stable.
-- [x] Add Docker API/web images, Compose deployment, environment template and deployment guide.
-- [x] Add Docker image-build CI.
-- [ ] Deploy to a real host with DNS/TLS, backups, monitoring and production secret management.
+- [x] Alpha Signal Engine Pro initial Python adapter, endpoint and tests.
+- [x] SMC structure adapter: confirmed pivots, BOS/CHoCH, EQH/EQL, FVG/OB candidates and premium/discount context.
+- [x] WSB wick/absorption/breakout adapter.
+- [x] AI Channels K-means context adapter.
+- [x] Institutional Footprint OHLCV proxy: liquidity clusters, sweep/reclaim and activity estimates.
+- [x] Unified Decision Engine: 4H macro veto, 1H primary direction/risk plan, 15M setup, optional 5M refinement.
+- [x] Gold Report AI orchestration combines all adapters.
+- [x] Ambiguous 1H structure and opposing confirmed 5M trigger hard-vetoes.
+- [ ] Full source-code parity with all supplied Pine scripts; current adapters are not parity-certified.
+- [ ] TradingView-exported golden fixtures for every engine and edge-case comparison.
+- [ ] Corrected SMC MTF no-lookahead/repainting, array-removal and bounded-history behavior.
+- [ ] Licensed exchange order-book/MBO, true aggressor-side CVD, open interest and trade-print feeds. Current OHLCV proxies are not real institutional orders or true CVD.
+- [ ] Calibrate evidence weights only after out-of-sample testing.
 
-## Current verified state
-- [x] React + Vite frontend foundation and build workflow.
-- [x] FastAPI backend foundation.
-- [x] Alpha Signal Engine initial port, endpoint and basic tests.
-- [x] SMC, WSB and AI Channels first isolated OHLCV adapters with tests (not full Pine parity ports).
-- [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
-- [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
-- [x] Unified architecture and implementation status documented.
-- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code, actual-tick freshness check, quote/spread gate and setup guide are ready. Full multi-timeframe backtesting, Pine parity, calibrated trade planner, live MBO/CVD/OI, real-host deployment and native Android APK remain pending. Research-only 1H Alpha replay is implemented but does not validate the complete strategy. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
-- [ ] Recheck CI after the latest stale-tick guard, UI cleanup and documentation commits; earlier backend/API and frontend build jobs passed on prior commits.
+## C. Chart and dashboard
+
+- [x] Responsive React/Vite dashboard and Lightweight Charts candlestick chart.
+- [x] Timeframe selection for 3M, 5M, 15M, 30M, 1H, 4H and 1D.
+- [x] 1H is the default and primary trading timeframe.
+- [x] 4H macro swing levels and 1H swing/FVG/OB-candidate/EQH/EQL price levels are drawn on the main chart across chart views.
+- [x] Bengali-first Gold Report panel with BUY/SELL/WAIT, reason codes and 1H entry/SL/TP proposal.
+- [x] Historical CSV import, data status, quote/spread status and backtest result panels.
+- [ ] Full shaded supply/demand/FVG/OB zones with timestamp lifecycle, mitigation and invalidation.
+- [ ] Prior day/week/month levels, richer liquidity sweep annotations and multi-timeframe zone labels.
+- [ ] Full per-engine Bengali evidence explanations and accessible mobile refinements.
+- [ ] Visual validation on actual Android device sizes and slow network.
+
+## D. Trade planning and historical validation
+
+- [x] Initial 1H structural/ATR entry zone, stop and TP1/TP2/TP3 proposal.
+- [x] Research-only 1H Alpha flip replay with next-bar entry, partial targets and conservative stop-first same-bar handling.
+- [x] Editable spread, slippage and commission assumptions in the research replay.
+- [x] First causal 4H/1H/15M/optional-5M Gold Report replay endpoint and dashboard UI.
+- [x] MTF replay aligns only fully closed bars available at each 1H decision close to reduce future leakage.
+- [ ] Validate MTF replay against TradingView golden fixtures and independently inspect every time-alignment edge case.
+- [ ] Calibrate entry zone/ATR/stop/targets; current plan is an uncalibrated research proposal.
+- [ ] Walk-forward, out-of-sample and anti-repainting validation.
+- [ ] Spread/commission/slippage scenario sweeps, session sensitivity and realistic broker execution assumptions.
+- [ ] Evaluate trade frequency, false positives, expectancy, drawdown and robustness; do not optimize only win rate.
+- [ ] Paper-trading forward test before any real-money use.
+
+## E. Packaging and operations
+
+- [x] PWA manifest, mobile metadata, app icon, service-worker registration and offline app-shell cache.
+- [x] Docker API/web images, Docker Compose, environment template and deployment guide.
+- [x] GitHub Actions backend tests, frontend build and Docker image-build workflows.
+- [ ] Verify the PWA install manually on the user's Android device over HTTPS.
+- [ ] Deploy to a real VPS/host with DNS, TLS, secret management, monitoring, backups and log retention.
+- [ ] Build and sign a native Android APK after feed, strategy validation and web core are stable.
+- [ ] Install/test native package on a real Android device.
+
+## Current verification boundary
+
+- Backend syntax and unit tests have passed on the latest backend feature commits, including the causal MTF replay and stale-tick spread gate.
+- Frontend production build has passed after the MTF replay panel and 4H/1H price overlays.
+- Docker build workflow is part of CI; verify the newest run before declaring the latest docs-only commit fully green.
+- MT5 EA source is committed but has not been compiled in MetaEditor or connected to the user's broker terminal.
+- No real broker feed is currently confirmed. No live institutional order book, MBO, true CVD or OI feed is connected.
+- The app does not place broker orders. No BUY/SELL output should be treated as a profit guarantee.
