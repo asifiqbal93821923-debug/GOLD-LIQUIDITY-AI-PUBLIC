@@ -16,32 +16,66 @@ except ImportError:
     from institutional_footprint import analyze_institutional_footprint
     from unified_decision import analyze_unified_decision
 
-def _trade_plan_1h(side: str | None, candles: list[dict[str,Any]]) -> dict[str,Any]:
-    """Initial 1H swing structure + ATR plan; requires >=50 closed 1H candles."""
-    if side not in ("BUY","SELL") or len(candles)<50:
-        return {"valid":False,"reason":"NO_CONFIRMED_1H_SETUP","source_timeframe":"1h"}
+def _trade_plan_1h(
+    side: str | None,
+    candles: list[dict[str,Any]],
+    settings: dict[str,Any] | None = None,
+) -> dict[str,Any]:
+    """1H structure + ATR plan; settings are calibrated only via historical replay."""
+    p = {
+        "atr_period": 15,
+        "swing_lookback": 20,
+        "stop_atr_buffer": 0.10,
+        "entry_atr_half_width": 0.05,
+        "target_rr": [1.0, 2.0, 3.0],
+        **(settings or {}),
+    }
+    if side not in ("BUY", "SELL") or len(candles) < 50:
+        return {"valid": False, "reason": "NO_CONFIRMED_1H_SETUP", "source_timeframe": "1h"}
     try:
-        rows=candles[-20:]; close=float(candles[-1]["close"]); tr=[]
-        start=max(0,len(candles)-15)
-        for i in range(start,len(candles)):
-            x=candles[i]; prev=float(candles[i-1]["close"]) if i else float(x["close"])
-            hi=float(x["high"]); lo=float(x["low"])
-            tr.append(max(hi-lo,abs(hi-prev),abs(lo-prev)))
-        atr=sum(tr)/len(tr)
-        if atr<=0: return {"valid":False,"reason":"ATR_INVALID","source_timeframe":"1h"}
-        entry=[close-0.05*atr,close+0.05*atr]; mid=sum(entry)/2
-        if side=="BUY":
-            stop=min(float(x["low"]) for x in rows)-0.10*atr; risk=mid-stop
-            if risk<0.25*atr: return {"valid":False,"reason":"STOP_DISTANCE_TOO_SMALL","source_timeframe":"1h"}
-            targets=[mid+risk*x for x in (1,2,3)]
+        atr_period = int(p["atr_period"])
+        swing_lookback = int(p["swing_lookback"])
+        stop_buffer = float(p["stop_atr_buffer"])
+        entry_width = float(p["entry_atr_half_width"])
+        rr = [float(x) for x in p["target_rr"]]
+        if atr_period < 2 or swing_lookback < 2 or min(stop_buffer, entry_width) < 0:
+            raise ValueError("invalid trade-plan settings")
+        if len(rr) != 3 or not (0 < rr[0] < rr[1] < rr[2]):
+            raise ValueError("target_rr must contain three increasing positive values")
+        close = float(candles[-1]["close"])
+        tr = []
+        start = max(0, len(candles) - atr_period)
+        for i in range(start, len(candles)):
+            x = candles[i]
+            prev = float(candles[i-1]["close"]) if i else float(x["close"])
+            hi, lo = float(x["high"]), float(x["low"])
+            tr.append(max(hi-lo, abs(hi-prev), abs(lo-prev)))
+        atr = sum(tr) / len(tr)
+        if atr <= 0:
+            return {"valid": False, "reason": "ATR_INVALID", "source_timeframe": "1h"}
+        rows = candles[-swing_lookback:]
+        entry = [close-entry_width*atr, close+entry_width*atr]
+        mid = sum(entry)/2
+        if side == "BUY":
+            stop = min(float(x["low"]) for x in rows) - stop_buffer*atr
+            risk = mid-stop
+            if risk < 0.25*atr:
+                return {"valid": False, "reason": "STOP_DISTANCE_TOO_SMALL", "source_timeframe": "1h"}
+            targets = [mid+risk*x for x in rr]
         else:
-            stop=max(float(x["high"]) for x in rows)+0.10*atr; risk=stop-mid
-            if risk<0.25*atr: return {"valid":False,"reason":"STOP_DISTANCE_TOO_SMALL","source_timeframe":"1h"}
-            targets=[mid-risk*x for x in (1,2,3)]
-        return {"valid":True,"source_timeframe":"1h","method":"1h_20bar_structure_plus_15bar_simple_ATR_buffer","entry":entry,"stop_loss":stop,"targets":targets,"risk_unit":risk}
-    except (KeyError,TypeError,ValueError,ZeroDivisionError):
-        return {"valid":False,"reason":"TRADE_PLAN_INPUT_INVALID","source_timeframe":"1h"}
-
+            stop = max(float(x["high"]) for x in rows) + stop_buffer*atr
+            risk = stop-mid
+            if risk < 0.25*atr:
+                return {"valid": False, "reason": "STOP_DISTANCE_TOO_SMALL", "source_timeframe": "1h"}
+            targets = [mid-risk*x for x in rr]
+        return {
+            "valid": True, "source_timeframe": "1h",
+            "method": "calibratable_1h_structure_atr",
+            "parameters": p, "atr": atr, "entry": entry,
+            "stop_loss": stop, "targets": targets, "risk_unit": risk,
+        }
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return {"valid": False, "reason": "TRADE_PLAN_INPUT_INVALID", "source_timeframe": "1h"}
 def build_gold_report(timeframes: dict[str,list[dict[str,Any]]], data_fresh: bool=False, spread_acceptable: bool=False) -> dict[str,Any]:
     required=("4h","1h","15m"); outputs={}
     for tf in ("4h","1h","15m","5m"):
