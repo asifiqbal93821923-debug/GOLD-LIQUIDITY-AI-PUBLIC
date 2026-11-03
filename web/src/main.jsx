@@ -6,7 +6,8 @@ import './style.css';
 createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(error => {
+    const workerUrl = new URL('sw.js', import.meta.env.BASE_URL).toString();
+    navigator.serviceWorker.register(workerUrl).catch(error => {
       console.warn('Offline shell registration failed:', error);
     });
   });
