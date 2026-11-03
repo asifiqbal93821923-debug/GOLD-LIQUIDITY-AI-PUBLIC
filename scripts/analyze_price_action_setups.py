@@ -99,7 +99,10 @@ def main() -> None:
     ap.add_argument("--lookback", type=int, default=20)
     ap.add_argument("--retest-bars", type=int, default=6)
     args = ap.parse_args()
-    candles = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    candles = payload.get("15m", []) if isinstance(payload, dict) else payload
+    if not isinstance(candles, list):
+        raise SystemExit("Input must be a JSON candle array or prepared MTF dataset with a 15m array")
     events = classify(candles, args.lookback, args.retest_bars)
     report = {"status": "ok", "event_count": len(events), "events": events,
               "outcomes": outcome_summary(candles, events),
