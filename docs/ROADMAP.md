@@ -1,7 +1,7 @@
 # Development Roadmap
 
 ## Phase 1 — Market data foundation
-- [ ] Confirm the execution reference feed (preferred: user's MT5 broker feed via a server-side bridge).
+- [x] Implement authenticated MT5 Expert Advisor bridge endpoint, EA source and setup guide.\n- [ ] Configure the user's server token, install EA in MT5 desktop and verify fresh broker candles.\n- [ ] Confirm the execution reference feed and broker symbol/session semantics.
 - [x] Add a persistent SQLite historical-candle store and validated JSON import/retrieval API; keep secrets server-side. (Historical import only; provider adapter/live feed remains pending)
 - [ ] Validate XAUUSD symbol mapping, timezone, session gaps, candle boundaries and volume semantics.
 - [x] Load user-imported historical candles through API without fabricating data.\n- [ ] Connect a licensed/provider historical source and stream live updates.
@@ -40,7 +40,7 @@
 - [ ] Validate signal frequency and false-positive rate; never optimize only for win rate.
 
 ## Phase 5 — Web and Android delivery
-- [ ] Connect a production market data provider and live candle stream (requires provider selection/credentials or MT5 bridge).
+- [x] Add MT5 EA-to-API candle bridge source and authenticated ingestion endpoint.\n- [ ] Activate and verify the bridge with the user's MT5 terminal and server token; no live data is connected until this setup is completed.
 - [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
 - [x] Add backend unit tests and GitHub Actions compile/test workflow; historical-data and frontend changes have green CI on their respective commits.
 - [x] Connect dashboard to historical candle API, CSV import, 1H-primary report and initial 1H SMC overlays.\n- [ ] Complete Bengali explanations, live data status and full interactive zone/risk panels.
@@ -56,5 +56,5 @@
 - [x] Gold Report AI orchestration combines all four indicator families and liquidity proxy.
 - [x] Hierarchical 4H/1H/15M Decision Engine connected to calculated outputs; 1H is primary and 5M is optional.
 - [x] Unified architecture and implementation status documented.
-- [ ] No production market feed, certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, or Android package yet. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
+- [ ] Live feed has not yet been activated on the user's MT5 terminal; bridge code and setup guide are ready. Certified Pine parity, calibrated/backtested trade planner, live MBO/CVD/OI feed, deployment and Android package remain pending. Historical CSV import, chart rendering and initial 1H candidate overlays are implemented.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
