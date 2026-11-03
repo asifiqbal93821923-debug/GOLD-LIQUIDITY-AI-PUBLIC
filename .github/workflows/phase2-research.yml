@@ -54,8 +54,8 @@ jobs:
           EXTRA=""
           if [ -s data/phase2/xauusd_5m.csv ]; then EXTRA="--5m data/phase2/xauusd_5m.csv"; fi
           python scripts/prepare_xauusd_dataset.py \
-            --source "\${{ inputs.source }}" \
-            --symbol "\${{ inputs.symbol }}" \
+            --source "${{ inputs.source }}" \
+            --symbol "${{ inputs.symbol }}" \
             --4h data/phase2/xauusd_4h.csv \
             --1h data/phase2/xauusd_1h.csv \
             --15m data/phase2/xauusd_15m.csv \
@@ -66,29 +66,29 @@ jobs:
           python scripts/optimize_alpha_settings.py \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --candidates 100 \
-            --spread-points "\${{ inputs.spread_points }}" \
-            --slippage-points "\${{ inputs.slippage_points }}" \
-            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
-            --point-size "\${{ inputs.point_size }}" \
+            --spread-points "${{ inputs.spread_points }}" \
+            --slippage-points "${{ inputs.slippage_points }}" \
+            --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
+            --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/alpha-optimizer.json
       - name: 1H entry, stop-loss and target calibration
         run: |
           python scripts/calibrate_trade_plan.py \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
-            --spread-points "\${{ inputs.spread_points }}" \
-            --slippage-points "\${{ inputs.slippage_points }}" \
-            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
-            --point-size "\${{ inputs.point_size }}" \
+            --spread-points "${{ inputs.spread_points }}" \
+            --slippage-points "${{ inputs.slippage_points }}" \
+            --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
+            --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/trade-plan-calibration.json
       - name: Costed walk-forward and out-of-sample test
         run: |
           python scripts/walk_forward_validation.py \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
             --train-fraction 0.70 \
-            --spread-points "\${{ inputs.spread_points }}" \
-            --slippage-points "\${{ inputs.slippage_points }}" \
-            --commission-points-per-side "\${{ inputs.commission_points_per_side }}" \
-            --point-size "\${{ inputs.point_size }}" \
+            --spread-points "${{ inputs.spread_points }}" \
+            --slippage-points "${{ inputs.slippage_points }}" \
+            --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
+            --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/walk-forward.json
       - name: False-breakout, sweep and retest diagnostics
         run: |
@@ -114,7 +114,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase2-research-\${{ github.run_number }}
+          name: phase2-research-${{ github.run_number }}
           path: |
             reports/phase2/
             data/phase2/pine_reference_1h.csv
