@@ -87,3 +87,36 @@ jobs:
           if config.get("historical_store") != "postgresql":
               print("::warning::Persistent Neon PostgreSQL is not active yet; API currently reports SQLite.")
           PY
+
+      - name: Verify historical candle audit endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://gold-terminal-api.onrender.com"
+          cat > /tmp/history-audit.json <<'JSON'
+          {
+            "timeframes": {
+              "1h": [
+                {"time":"2020-01-01T00:00:00Z","open":1500,"high":1502,"low":1498,"close":1501,"volume":100},
+                {"time":"2020-01-01T01:00:00Z","open":1501,"high":1503,"low":1499,"close":1502,"volume":110},
+                {"time":"2020-01-01T02:00:00Z","open":1502,"high":1504,"low":1500,"close":1503,"volume":120}
+              ]
+            }
+          }
+          JSON
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/history-audit.json \
+            "$BASE/api/market/history/audit" -o /tmp/history-audit-response.json
+          python - <<'PY'
+          import json
+          with open("/tmp/history-audit-response.json", encoding="utf-8") as f:
+              report = json.load(f)
+          h1 = report["reports"]["1h"]
+          assert report.get("status") == "ok", report
+          assert h1.get("valid_unique_rows") == 3, h1
+          assert h1.get("closed_rows") == 3, h1
+          assert h1.get("duplicate_rows") == 0, h1
+          print("Historical audit API: PASS")
+          print("Validated 1H closed candles:", h1["closed_rows"])
+          PY
