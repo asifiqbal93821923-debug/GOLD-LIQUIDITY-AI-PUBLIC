@@ -69,8 +69,8 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
         if len(normalized[tf])<50:
             return {"status":"insufficient_history","timeframe":tf,"required_minimum":50,"received":len(normalized[tf])}
     h1=normalized["1h"]
-    if len(h1)>3000:
-        return {"status":"too_much_history","maximum_1h_bars":3000,"received":len(h1)}
+    if len(h1)>6000:
+        return {"status":"too_much_history","maximum_1h_bars":6000,"received":len(h1)}
     alpha1=analyze_alpha_signal(h1,(settings or {}).get("alpha"))
     if alpha1.get("status")!="ok":
         return {"status":alpha1.get("status"),"reason":"1H_ALPHA_NOT_READY","engine":alpha1}
@@ -91,7 +91,7 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
         if h4_alpha.get("status")!="ok":
             vetoes["4H_ALPHA_NOT_READY"]+=1; continue
         h1_side="bullish" if sig["signal"]=="BUY" else "bearish"
-        plan=_trade_plan_1h(sig["signal"],h1_prefix)
+        plan=_trade_plan_1h(sig["signal"],h1_prefix,(settings or {}).get("trade_plan"))
         if plan.get("valid"):
             plan={**plan,"entry_zone":plan.get("entry")}
         trigger=None
@@ -136,5 +136,5 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
       "excluded_unclosed_candles":excluded_unclosed,
       "timeframe_policy":{"4h":"latest fully closed macro candle","1h":"primary Alpha direction and trade plan",
         "15m":"latest fully closed SMC setup","5m":"optional latest fully closed WSB refinement"},
-      "scope_warning":"Research replay only. Uses current Python adapters, not certified Pine parity. 1H trade plan is uncalibrated; spread/costs are user assumptions. OHLC bars cannot resolve intrabar order, handled conservatively stop-first."})
+      "scope_warning":"Research replay only. Uses current Python adapters, not certified Pine parity. 1H trade-plan parameters are supplied by the caller (defaults remain uncalibrated); spread/costs are user assumptions. OHLC bars cannot resolve intrabar order, handled conservatively stop-first."})
     return result
