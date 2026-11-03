@@ -44,6 +44,7 @@ def candles(timeframe: str = "15m", limit: int = 300):
 from pydantic import BaseModel, Field
 from alpha_signal import analyze_alpha_signal
 from unified_decision import analyze_unified_decision
+from institutional_footprint import analyze_institutional_footprint, build_gold_report
 
 class Candle(BaseModel):
     time: str | int | float | None = None
@@ -67,3 +68,27 @@ def alpha_signal_analysis(payload: AlphaAnalysisRequest):
 def unified_decision(payload: dict):
     """Conservative confluence gate for precomputed, confirmed engine outputs."""
     return analyze_unified_decision(payload)
+
+
+class FootprintAnalysisRequest(BaseModel):
+    candles: list[Candle] = Field(min_length=30, max_length=5000)
+    settings: dict = Field(default_factory=dict)
+
+class GoldReportRequest(BaseModel):
+    timeframes: dict[str, list[Candle]]
+
+@app.post("/api/analysis/institutional-footprint")
+def institutional_footprint_analysis(payload: FootprintAnalysisRequest):
+    """Candle-derived liquidity/absorption proxies; no hidden order-book claims."""
+    candles = [item.model_dump() for item in payload.candles]
+    return analyze_institutional_footprint(candles, payload.settings)
+
+@app.post("/api/analysis/gold-report")
+def gold_report_analysis(payload: GoldReportRequest):
+    """Bengali dashboard can consume this multi-timeframe Gold Report AI contract."""
+    timeframes = {
+        tf: [item.model_dump() for item in rows]
+        for tf, rows in payload.timeframes.items()
+        if tf in {"4h", "1h", "15m", "5m"}
+    }
+    return build_gold_report(timeframes)
