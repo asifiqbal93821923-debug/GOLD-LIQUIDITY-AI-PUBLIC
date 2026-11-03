@@ -72,7 +72,14 @@ def load_meta(path: str | None) -> dict | None:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def compare(reference, candidate, numeric_columns, tolerance_seconds=0, numeric_tolerance=1e-8):
+def compare(reference, candidate, numeric_columns=(), tolerance_seconds=0, numeric_tolerance=1e-8):
+    # Backward-compatible input: older research tests pass {timestamp: "BUY"}.
+    def normalize(rows):
+        normalized = {}
+        for timestamp, value in rows.items():
+            normalized[timestamp] = value if isinstance(value, dict) else {"signal": side(str(value))}
+        return normalized
+    reference, candidate = normalize(reference), normalize(candidate)
     ref_times, cand_times = set(reference), set(candidate)
     common = sorted(ref_times & cand_times)
     missing = sorted(ref_times - cand_times)
@@ -111,6 +118,9 @@ def compare(reference, candidate, numeric_columns, tolerance_seconds=0, numeric_
         "numeric": numeric,
         "missing_timestamps_first_100": missing[:100],
         "extra_timestamps_first_100": extra[:100],
+        "timestamp_matches": len(common),
+        "direction_matches": sum(confusion[s][s] for s in confusion),
+        "direction_accuracy_pct": round(100 * sum(confusion[s][s] for s in confusion) / len(common), 4) if common else 0.0,
         "timestamp_tolerance_seconds": tolerance_seconds,
         "note": "Strict exact timestamp join is used. Non-zero timestamp tolerance is diagnostic only and does not alter the candle-by-candle PASS gate."
     }
@@ -151,7 +161,7 @@ def main():
     raw = json.dumps(report, indent=2)
     if a.output:
         Path(a.output).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.output).write_text(raw + "\\n", encoding="utf-8")
+        Path(a.output).write_text(raw + "\n", encoding="utf-8")
     print(raw)
     if report["status"] != "PASS":
         raise SystemExit(1)
