@@ -80,7 +80,8 @@ export default function App(){
   const [api,setApi]=useState('checking');
   const [config,setConfig]=useState(null);
   const [tf,setTf]=useState('1h');
-  const [candles,setCandles]=useState([]);\n  const [dataKind,setDataKind]=useState('historical_import');
+  const [candles,setCandles]=useState([]);
+  const [dataKind,setDataKind]=useState('historical_import');
   const [counts,setCounts]=useState({});
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
