@@ -109,4 +109,24 @@ class ServerTradeGateTests(unittest.TestCase):
                 self.assertNotIn("DATA_NOT_FRESH_OR_COMPLETE",codes)
                 self.assertNotIn("SPREAD_NOT_ACCEPTABLE",codes)
 
+    def test_non_finite_spread_limit_never_opens_trade_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,
+                int(datetime.now(timezone.utc).timestamp()),"mt5_bridge")
+            with patch.object(api,"STORE",store), patch.dict(os.environ,{"MAX_SPREAD_POINTS":"inf"}):
+                state=api.get_market_quote()
+                self.assertFalse(state["acceptable"])
+                self.assertIsNone(state["max_spread_points"])
+
+    def test_unconfigured_spread_limit_has_explicit_closed_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store=CandleStore(str(Path(tmp)/"candles.db"))
+            store.upsert_quote("XAUUSD",2350.10,2350.20,0.01,
+                int(datetime.now(timezone.utc).timestamp()),"mt5_bridge")
+            with patch.object(api,"STORE",store), patch.dict(os.environ,{"MAX_SPREAD_POINTS":"0"}):
+                state=api.get_market_quote()
+                self.assertFalse(state["acceptable"])
+                self.assertEqual(state["reason"],"SPREAD_LIMIT_NOT_CONFIGURED")
+
 if __name__=="__main__": unittest.main()

@@ -10,8 +10,8 @@ Set a long random secret in the server environment. Do not commit it or put it i
 
 ```bash
 export MARKET_INGEST_TOKEN='replace-with-a-long-random-secret'
-export CANDLE_DB_PATH='data/market_candles.sqlite3'
-export MAX_SPREAD_POINTS='0' # set a measured numeric broker limit before enabling BUY/SELL
+export DATABASE_URL='postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require' # Neon pooled or direct URL
+export MAX_SPREAD_POINTS='0' # fail-closed until calibrated from this broker
 uvicorn main:app --app-dir server --host 127.0.0.1 --port 8765
 ```
 
@@ -19,8 +19,8 @@ For Windows PowerShell:
 
 ```powershell
 $env:MARKET_INGEST_TOKEN = "replace-with-a-long-random-secret"
-$env:CANDLE_DB_PATH = "data/market_candles.sqlite3"
-$env:MAX_SPREAD_POINTS = "0" # set a measured numeric broker limit before enabling BUY/SELL
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require" # Neon connection string
+$env:MAX_SPREAD_POINTS = "0" # fail-closed until calibrated from this broker
 uvicorn main:app --app-dir server --host 127.0.0.1 --port 8765
 ```
 
@@ -47,7 +47,11 @@ If the broker uses a suffix (for example `XAUUSDm`), change `InpSymbol` to that 
 
 The EA also sends current broker Bid/Ask snapshots to `/api/market/quote/bridge`. Set `MAX_SPREAD_POINTS` to a limit appropriate for your broker's XAUUSD digits and normal spread; until a positive limit is configured and a fresh quote is received, the spread gate stays closed and the report returns WAIT.
 
-The bridge resends historical closed candles, so the SQLite store is upserted by symbol/timeframe/timestamp. The server requires recent MT5 candle uploads, verifies the latest bar is closed and no older than one full timeframe plus 180 seconds, and checks the timestamp of the actual last broker tick (not just the timer's last HTTP request). The HTTP receive and tick freshness windows are 180 seconds.
+The bridge resends historical closed candles, so the configured store is upserted by symbol/timeframe/timestamp. When `DATABASE_URL` is set, the API selects PostgreSQL (Neon); otherwise it falls back to local SQLite. Neon connection strings should include `sslmode=require`. Existing SQLite rows are **not** copied automatically: import the required history after switching databases.
+
+Verify Neon persistence in this order: (1) open `/api/config/status` and confirm `historical_store: "postgresql"`; (2) import a small known candle batch or receive MT5 bars; (3) read the same timeframe and confirm the rows; (4) redeploy/restart the API; (5) read again and confirm the rows remain. A 200 health response alone does not prove PostgreSQL persistence.
+
+The server requires recent MT5 candle uploads, verifies the latest bar is closed and no older than one full timeframe plus 180 seconds, and checks the timestamp of the actual last broker tick (not just the timer's last HTTP request). The HTTP receive and tick freshness windows are 180 seconds.
 
 ## Network and broker calibration
 
@@ -63,6 +67,7 @@ The bridge resends historical closed candles, so the SQLite store is upserted by
 - MT5 tick volume is broker-specific tick activity, not centralized traded volume.
 - Different brokers may quote different XAUUSD prices and candle boundaries.
 - The bridge sends closed candles only; it does not send order-book depth, true bid/ask delta, exchange MBO, open interest, or institutional identity.
+- The spread gate accepts only a finite positive `MAX_SPREAD_POINTS` value. Empty, zero, negative, NaN or Infinity values keep it closed. Leave it at zero until you observe the actual broker spread in points across active sessions and choose a conservative limit; do not guess a universal XAUUSD number.
 - The bridge does not place, modify, or close trades.
 - A green connection status does not validate strategy profitability or Pine Script parity.
 - Keep the token secret. Rotate it if it is exposed.

@@ -35,6 +35,14 @@ def read_points(path):
     return result
 
 
+def merge_archive(existing, incoming, now):
+    """Deduplicate by timestamp and retain only the latest 90 days."""
+    merged = {p["t"]: p for p in existing}
+    merged.update({p["t"]: p for p in incoming})
+    cutoff = int(now) - RETENTION_SECONDS
+    return [merged[k] for k in sorted(merged) if k >= cutoff]
+
+
 def main():
     request = urllib.request.Request(URL, headers={
         "Accept": "application/json",
@@ -57,9 +65,7 @@ def main():
         raise RuntimeError(f"Latest XAUS sample is stale/future (age={age}s); refusing to publish")
 
     # Preserve earlier samples from previous successful scheduled runs.
-    merged = {p["t"]: p for p in read_points(HISTORY)}
-    merged.update({p["t"]: p for p in incoming})
-    points = [merged[k] for k in sorted(merged) if k >= now - RETENTION_SECONDS]
+    points = merge_archive(read_points(HISTORY), incoming, now)
     meta = {
         "schema_version": 1,
         "source": "XAUS public indicative XAU spot",

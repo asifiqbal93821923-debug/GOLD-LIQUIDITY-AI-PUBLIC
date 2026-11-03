@@ -61,6 +61,15 @@ def _ingest_status(tf: str, now: datetime | None=None) -> dict:
 def _fresh_ingest(tf: str, now: datetime | None=None) -> bool:
     return _ingest_status(tf,now)["fresh"]
 
+def _configured_max_spread_points() -> float:
+    """Return a finite positive broker-calibrated limit; fail closed otherwise."""
+    try:
+        value=float(os.getenv("MAX_SPREAD_POINTS","0"))
+    except (TypeError,ValueError):
+        return 0.0
+    return value if math.isfinite(value) and value>0 else 0.0
+
+
 def _quote_status(now: datetime | None=None) -> dict:
     now=now or datetime.now(timezone.utc)
     quote=STORE.latest_quote("XAUUSD")
@@ -69,13 +78,24 @@ def _quote_status(now: datetime | None=None) -> dict:
     try:
         receive_age=(now-datetime.fromisoformat(quote["updated_at"])).total_seconds()
         tick_age=now.timestamp()-float(quote["quote_time"])
+        spread=float(quote["spread_points"])
+        threshold=_configured_max_spread_points()
+        if not math.isfinite(spread) or spread<0:
+            raise ValueError("Invalid stored spread")
         fresh=bool(0<=receive_age<=180 and -5<=tick_age<=180)
-        threshold=float(os.getenv("MAX_SPREAD_POINTS","0"))
-        acceptable=bool(fresh and threshold>0 and float(quote["spread_points"])<=threshold)
-        return {"fresh":fresh,"acceptable":acceptable,"spread_points":round(float(quote["spread_points"]),2),
+        acceptable=bool(fresh and threshold>0 and spread<=threshold)
+        if not fresh:
+            reason="STALE_QUOTE"
+        elif threshold<=0:
+            reason="SPREAD_LIMIT_NOT_CONFIGURED"
+        elif spread>threshold:
+            reason="SPREAD_LIMIT_EXCEEDED"
+        else:
+            reason=None
+        return {"fresh":fresh,"acceptable":acceptable,"spread_points":round(spread,2),
           "max_spread_points":threshold or None,"quote_age_seconds":round(tick_age,1),
-          "reason":None if acceptable else "STALE_QUOTE_OR_SPREAD_LIMIT_CLOSED"}
-    except (TypeError,ValueError):
+          "reason":reason}
+    except (TypeError,ValueError,KeyError):
         return {"fresh":False,"acceptable":False,"reason":"INVALID_QUOTE_TIMESTAMP_OR_SPREAD"}
 
 

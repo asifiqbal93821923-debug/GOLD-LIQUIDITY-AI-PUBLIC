@@ -12,13 +12,13 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 
 ## Current status — Foundation 0.4.0 + 1H-primary analysis + historical import
 - React + Vite responsive frontend and Lightweight Charts surface.
-- FastAPI backend with health/configuration, SQLite historical-candle import/retrieval and analysis endpoints.
+- FastAPI backend with health/configuration, SQLite fallback and Neon/PostgreSQL historical-candle persistence support, plus analysis endpoints.
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
 - Source intake reviews for Alpha Signal, LuxAlgo SMC (partial source), WSB and AI Channels.
 - Unified feature-selection architecture: [Unified Gold Engine Blueprint](docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
 - 1H-primary Gold Report orchestrator: 4H macro context, 1H direction/trade-plan source, 15M setup confirmation and optional 5M refinement.
 - CSV historical-candle import, SQLite persistence, candlestick chart rendering and initial 1H SMC candidate-level overlays.
-- Authenticated MT5 Expert Advisor bridge for closed candles and Bid/Ask spread snapshots; actual live connection requires server token configuration and EA installation.
+- Authenticated MT5 Expert Advisor source for closed candles and Bid/Ask quote snapshots, protected by a server token and a fail-closed configurable spread gate; actual live connection requires server token configuration and EA installation/compilation in MT5 Desktop.
 - Installable PWA manifest, icon and offline app-shell cache; market/API data intentionally remains online-only.
 - Dockerfiles, Compose configuration and CI image-build checks for local/VPS deployment.
 - Research-only 1H Alpha flip replay and causal multi-timeframe 4H/1H/15M/optional-5M Gold Report replay endpoints, with next-bar execution, conservative stop-first same-bar handling, partial TP exits and editable spread/slippage/commission assumptions.\n- Full MTF replay aligns only fully closed higher/lower timeframe candles to each 1H signal close to reduce future leakage; it remains an uncalibrated adapter-based research backtest.
