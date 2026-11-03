@@ -174,7 +174,7 @@ export default function App(){
 
     <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
-        <div className="empty-state"><AlertTriangle size={22}/><b>Chart Overlay Pending</b><span>Engine zone data exists; visual chart mapping and multi-timeframe anchoring remain under development.</span></div></article>
+        <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
         <div className="empty-state"><Radio size={22}/><b>Live feed not connected</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Commission and slippage model remain pending.</span></div></article>
     </section>
