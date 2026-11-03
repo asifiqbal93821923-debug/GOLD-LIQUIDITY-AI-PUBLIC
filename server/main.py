@@ -124,7 +124,7 @@ class GoldReportRequest(BaseModel):
     data_fresh: bool = False
     spread_acceptable: bool = False
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root_health():
     # Root health response for generic platform probes and browser checks.
     return {"status":"ok","app":"GOLD TERMINAL API","health":"/api/health"}
