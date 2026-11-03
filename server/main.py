@@ -124,6 +124,11 @@ class GoldReportRequest(BaseModel):
     data_fresh: bool = False
     spread_acceptable: bool = False
 
+@app.get("/")
+def root_health():
+    # Root health response for generic platform probes and browser checks.
+    return {"status":"ok","app":"GOLD TERMINAL API","health":"/api/health"}
+
 @app.get("/api/health")
 def health():
     return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.4.0"}
