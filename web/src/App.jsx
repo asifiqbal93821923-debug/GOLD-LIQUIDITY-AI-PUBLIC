@@ -234,6 +234,11 @@ export default function App(){
         <div className="backtest-result"><div className="backtest-grid">
           <span>Trades <b>{backtest.trade_count}</b></span><span>Win Rate <b>{backtest.win_rate_pct}%</b></span><span>Net PnL <b>{backtest.net_pnl_price}</b></span><span>Average R <b>{backtest.average_R}</b></span><span>Profit Factor <b>{backtest.profit_factor??'—'}</b></span><span>Max Drawdown <b>{backtest.max_drawdown_price}</b></span>
         </div><small>{backtest.scope_warning||backtest.reason||backtest.execution_model}</small></div>}
+      <div className="mtf-backtest">
+        <b>FULL GOLD REPORT · 4H / 1H / 15M · OPTIONAL 5M</b>
+        {!mtfBacktest?<small>৪H Macro, ১H Primary, ১৫M Setup এবং থাকলে ৫M refinement ধরে causal historical replay চালাও।</small>:
+          <><div className="backtest-grid"><span>Trades <b>{mtfBacktest.trade_count}</b></span><span>Win Rate <b>{mtfBacktest.win_rate_pct}%</b></span><span>Net PnL <b>{mtfBacktest.net_pnl_price}</b></span><span>Average R <b>{mtfBacktest.average_R}</b></span><span>Profit Factor <b>{mtfBacktest.profit_factor??'—'}</b></span><span>Max DD <b>{mtfBacktest.max_drawdown_price}</b></span></div><small>Evaluated {mtfBacktest.signals_evaluated} · Accepted {mtfBacktest.accepted_signals} · Veto reasons: {JSON.stringify(mtfBacktest.veto_counts||{})}</small><small>{mtfBacktest.scope_warning}</small></>}
+      </div>
     </section>
 
     <section className="lower-grid">
