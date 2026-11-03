@@ -21,8 +21,8 @@ def run_rolling_walk_forward(frames, *, folds=4, train_fraction=0.50,
                              costs=None, settings=None, min_bars=50):
     if folds < 2:
         raise ValueError("folds must be at least 2")
-    if not 0.30 <= train_fraction <= 0.85:
-        raise ValueError("train_fraction must be 0.30..0.85")
+    if not 0.10 <= train_fraction <= 0.85:
+        raise ValueError("train_fraction must be 0.10..0.85")
     if not 0.05 <= test_fraction <= 0.30:
         raise ValueError("test_fraction must be 0.05..0.30")
     if mode not in ("anchored", "rolling"):
@@ -115,9 +115,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True); ap.add_argument("--output")
     ap.add_argument("--folds", type=int, default=4)
-    ap.add_argument("--train-fraction", type=float, default=.50)
+    ap.add_argument("--train-fraction", type=float, default=.12)
     ap.add_argument("--test-fraction", type=float, default=.10)
-    ap.add_argument("--mode", choices=("anchored", "rolling"), default="anchored")
+    ap.add_argument("--mode", choices=("anchored", "rolling"), default="rolling")
     ap.add_argument("--spread-points", type=float, required=True)
     ap.add_argument("--slippage-points", type=float, required=True)
     ap.add_argument("--commission-points-per-side", type=float, default=0)
