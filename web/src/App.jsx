@@ -72,19 +72,32 @@ async function loadFreePublicGoldCandles(frame){
 }
 
 function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
-  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]); const [zoneRects,setZoneRects]=useState([]);
+  const host=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const priceLinesRef=useRef([]); const [zoneRects,setZoneRects]=useState([]); const [chartError,setChartError]=useState('');
   useEffect(()=>{
     if(!host.current) return;
-    const chart=createChart(host.current,{autoSize:true,
-      layout:{background:{type:ColorType.Solid,color:'#0d1420'},textColor:'#91a0b5',attributionLogo:false},
-      grid:{vertLines:{color:'#172232'},horzLines:{color:'#172232'}},
-      rightPriceScale:{borderColor:'#263449'},timeScale:{borderColor:'#263449',timeVisible:true,secondsVisible:false},
-      crosshair:{vertLine:{color:'#61748c'},horzLine:{color:'#61748c'}}});
-    const series=chart.addSeries(CandlestickSeries,{upColor:'#21b78a',downColor:'#ed6675',
-      borderUpColor:'#21b78a',borderDownColor:'#ed6675',wickUpColor:'#21b78a',wickDownColor:'#ed6675'});
-    chartRef.current=chart; seriesRef.current=series;
-    const resize=new ResizeObserver(()=>chart.timeScale().fitContent()); resize.observe(host.current);
-    return ()=>{resize.disconnect();chart.remove();chartRef.current=null;seriesRef.current=null;};
+    let chart=null, stopResize=()=>{};
+    try {
+      const width=Math.max(280,host.current.clientWidth||320);
+      const height=Math.max(180,host.current.clientHeight||240);
+      chart=createChart(host.current,{width,height,
+        layout:{background:{type:ColorType.Solid,color:'#0d1420'},textColor:'#91a0b5',attributionLogo:false},
+        grid:{vertLines:{color:'#172232'},horzLines:{color:'#172232'}},
+        rightPriceScale:{borderColor:'#263449'},timeScale:{borderColor:'#263449',timeVisible:true,secondsVisible:false},
+        crosshair:{vertLine:{color:'#61748c'},horzLine:{color:'#61748c'}}});
+      const series=chart.addSeries(CandlestickSeries,{upColor:'#21b78a',downColor:'#ed6675',
+        borderUpColor:'#21b78a',borderDownColor:'#ed6675',wickUpColor:'#21b78a',wickDownColor:'#ed6675'});
+      chartRef.current=chart; seriesRef.current=series;
+      const resize=()=>{if(!chart||!host.current)return;chart.applyOptions({width:Math.max(280,host.current.clientWidth||320),height:Math.max(180,host.current.clientHeight||240)});chart.timeScale().fitContent();};
+      if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(resize);observer.observe(host.current);stopResize=()=>observer.disconnect();}
+      else {window.addEventListener('resize',resize);stopResize=()=>window.removeEventListener('resize',resize);}
+      resize();
+    } catch(error) {
+      console.error('Chart initialization failed:',error);
+      setChartError(error?.message||'Chart initialization failed');
+      try{chart?.remove();}catch(_){}
+      chartRef.current=null;seriesRef.current=null;
+    }
+    return ()=>{stopResize();try{chart?.remove();}catch(_){}chartRef.current=null;seriesRef.current=null;};
   },[]);
   useEffect(()=>{
     if(!seriesRef.current) return;
@@ -117,9 +130,11 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
       setZoneRects(next);
     };
     update();
-    const resize=new ResizeObserver(update); resize.observe(el);
+    let stopResize=()=>{};
+    if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(update);observer.observe(el);stopResize=()=>observer.disconnect();}
+    else {window.addEventListener('resize',update);stopResize=()=>window.removeEventListener('resize',update);}
     ts.subscribeVisibleLogicalRangeChange(update);
-    return ()=>{resize.disconnect();ts.unsubscribeVisibleLogicalRangeChange(update);};
+    return ()=>{stopResize();ts.unsubscribeVisibleLogicalRangeChange(update);};
   },[report,candles]);
   useEffect(()=>{
     if(!seriesRef.current) return;
@@ -153,7 +168,8 @@ function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,data
       <div className="zone-overlay">{zoneRects.map(z=><div key={z.id} className="zone-rect" style={{left:z.left,top:z.top,width:z.width,height:z.height,borderColor:z.color,background:z.color+'22'}}>
         <span style={{color:z.color}}>{z.label}</span></div>)}</div>
     </div>
-    {!candles.length&&<div className="chart-overlay"><CandlestickChart size={25}/><b>{loading?'Candle লোড হচ্ছে…':'এই Timeframe-এর Candle Data নেই'}</b><span>MT5 বা CSV থেকে Historical Candle Import করুন। কোনো Synthetic Price দেখানো হচ্ছে না।</span></div>}
+    {chartError&&<div className="chart-overlay"><AlertTriangle size={22}/><b>চার্ট মডিউল শুরু করা যায়নি</b><span>{chartError}</span></div>}
+    {!candles.length&&!chartError&&<div className="chart-overlay"><CandlestickChart size={25}/><b>{loading?'Candle লোড হচ্ছে…':'এই Timeframe-এর Candle Data নেই'}</b><span>MT5 বা CSV থেকে Historical Candle Import করুন। কোনো Synthetic Price দেখানো হচ্ছে না।</span></div>}
     <div className="chart-foot">চার্ট: {labels[timeframe]} · {candles.length} candles · {dataKind==='mt5_bridge'?'Recent MT5 closed candles':dataKind==='free_public_sampled'?'XAUS public 5-minute samples aggregated to '+timeframe.toUpperCase()+' (indicative, not XM ticks)':'Historical import only'} · Active candle-derived zones: {zoneRects.length}</div>
   </section>;
 }
