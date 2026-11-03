@@ -187,8 +187,10 @@ def get_market_quote(symbol: str="XAUUSD"):
 
 @app.post("/api/backtest/gold-mtf")
 def gold_mtf_backtest(payload: GoldBacktestRequest):
-    timeframes={tf:[x.model_dump() for x in rows] for tf,rows in payload.timeframes.items()
-      if tf in {"4h","1h","15m","5m"}}
+    selected={tf:rows for tf,rows in payload.timeframes.items() if tf in {"4h","1h","15m","5m"}}
+    if any(len(rows)>5000 for rows in selected.values()):
+        raise HTTPException(413,"Maximum 5000 candles per timeframe for research replay.")
+    timeframes={tf:[x.model_dump() for x in rows] for tf,rows in selected.items()}
     return run_gold_mtf_backtest(timeframes,costs=payload.costs,settings=payload.settings)
 
 @app.post("/api/backtest/alpha-1h")
