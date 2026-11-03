@@ -30,7 +30,7 @@
 ## Phase 3 — Chart and market structure
 - [x] Render imported historical OHLC candles on the chart for supported timeframes; live candles remain pending.
 - [x] Make 1H the primary analysis timeframe; 4H macro context/veto; 1H sole primary direction and trade-plan source; 15m setup confirmation; optional 5m entry refinement.
-- [ ] Keep 1H/4H zones fixed when viewing 3m/5m charts; map by timestamps and price, not chart-local pivots.
+- [x] Keep 4H/1H swing price levels anchored across 3m/5m/15m/1h chart views.\n- [ ] Render full shaded 4H/1H zones with timestamp lifecycle, mitigation and invalidation state.
 - [x] Add initial 1H swing high/low, FVG, OB-candidate and EQH/EQL price-line overlays to the main chart (candidate levels; full zone rendering/validation pending).
 - [ ] Add EQH/EQL, confirmed FVG, prior D/W/M levels and liquidity sweep estimates.
 - [x] Keep initial 1H SMC markings on the main candlestick chart; no separate lower pane. Full shaded zones and all timeframe anchors remain pending.
