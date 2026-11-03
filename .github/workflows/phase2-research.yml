@@ -164,6 +164,7 @@ jobs:
             python scripts/compare_tradingview_signals.py \
               --reference data/phase2/pine_reference_1h.csv \
               --candidate reports/phase2/python-signals-1h.csv \
+              --signal-column phase2_signal \
               --reference-meta data/phase2/pine-reference-meta.json \
               --candidate-meta reports/phase2/python-candidate-meta.json \
               --output reports/phase2/tradingview-parity.json
