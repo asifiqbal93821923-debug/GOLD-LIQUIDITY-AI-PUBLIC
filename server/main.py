@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
+import hmac
 from pydantic import BaseModel, Field
 from typing import Literal
 import os
@@ -61,10 +62,19 @@ def health():
 @app.get("/api/config/status")
 def config_status():
     provider=os.getenv("MARKET_DATA_PROVIDER","not_configured")
+    latest=STORE.latest_ingest("XAUUSD")
+    live=False
+    if latest and latest.get("source")=="mt5_bridge":
+        try:
+            updated=datetime.fromisoformat(latest["updated_at"])
+            live=(datetime.now(timezone.utc)-updated).total_seconds()<=180
+        except (TypeError,ValueError):
+            live=False
     return {"market":"XAUUSD","provider":provider,
       "credentials_present":bool(os.getenv("MARKET_DATA_API_KEY")),
-      "live_data":False,"historical_store":"sqlite",
-      "message":"Historical imports can be stored. A verified live provider is not configured.",
+      "bridge_token_configured":bool(os.getenv("MARKET_INGEST_TOKEN")),
+      "live_data":live,"last_ingest":latest,"historical_store":"sqlite",
+      "message":"MT5 bridge is sending recent candles." if live else "Historical imports are available; live MT5 bridge is not currently sending fresh candles.",
       "checked_at":datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/market/candles")
@@ -88,6 +98,27 @@ def import_candles(payload: CandleImportRequest):
     return {"status":"ok","symbol":payload.symbol.upper(),"timeframe":payload.timeframe,
       "received":len(rows),"stored":count,"source":payload.source[:80],
       "data_kind":"historical_import","live":False}
+
+
+@app.post("/api/market/candles/bridge")
+def mt5_candle_bridge(payload: CandleImportRequest, x_bridge_token: str | None = Header(default=None, alias="X-Bridge-Token")):
+    """Authenticated MT5 Expert Advisor ingestion endpoint; closed candles only."""
+    expected=os.getenv("MARKET_INGEST_TOKEN")
+    if not expected:
+        raise HTTPException(503,"Server MT5 bridge token is not configured.")
+    if not x_bridge_token or not hmac.compare_digest(x_bridge_token,expected):
+        raise HTTPException(401,"Invalid bridge token.")
+    if payload.timeframe not in TIMEFRAMES:
+        raise HTTPException(400,"Unsupported timeframe")
+    if payload.symbol.upper()!="XAUUSD":
+        raise HTTPException(400,"Only XAUUSD is enabled in this build")
+    rows=[x.model_dump() for x in payload.candles]
+    try: normalized=validate_candles(rows)
+    except ValueError as exc: raise HTTPException(422,str(exc))
+    count=STORE.upsert("XAUUSD",payload.timeframe,normalized,"mt5_bridge")
+    return {"status":"ok","source":"mt5_bridge","timeframe":payload.timeframe,
+      "received":len(rows),"stored":count,"live":True,
+      "note":"EA should resend closed bars on its timer; freshness is based on server receive time."}
 
 @app.post("/api/analysis/alpha-signal")
 def alpha_signal_analysis(payload: AlphaAnalysisRequest):
