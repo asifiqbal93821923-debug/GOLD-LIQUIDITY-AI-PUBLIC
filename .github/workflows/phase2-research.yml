@@ -80,11 +80,14 @@ jobs:
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/trade-plan-calibration.json
-      - name: Costed walk-forward and out-of-sample test
+      - name: Multi-fold rolling walk-forward and out-of-sample test
         run: |
-          python -m scripts.walk_forward_validation \
+          python -m scripts.rolling_walk_forward_validation \
             --input reports/phase2/xauusd_mtf_ohlcv.json \
-            --train-fraction 0.70 \
+            --folds 4 \
+            --mode rolling \
+            --train-fraction 0.12 \
+            --test-fraction 0.10 \
             --spread-points "${{ inputs.spread_points }}" \
             --slippage-points "${{ inputs.slippage_points }}" \
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
