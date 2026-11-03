@@ -54,7 +54,7 @@ The current workflow compares the Alpha Python signal engine only. The supplied 
 
 ## 3. Supply broker execution costs
 
-In the workflow inputs, use the target account's observed XAUUSD spread points, conservative slippage points, commission converted to price points per side, and the actual price point size from that broker's contract specification. Do not use the example values from old documentation as assumed real costs. The workflow requires all four cost parameters explicitly.
+In the workflow inputs, use the target account's observed XAUUSD spread points, conservative slippage points, commission converted to price points per side, actual price point size from that broker's contract specification, and a defensible maximum-spread cap. The same max-spread cap is applied to the optimizer, 1H calibration, every walk-forward train/OOS fold, the sealed holdout, and the base/conservative/adverse scenario runner. A zero or missing cap blocks all new entries. Do not use example values from old documentation as assumed real costs.
 
 ## 4. Run the GitHub Action
 
