@@ -5,7 +5,7 @@ A BUY/SELL decision opens a simulated position at the next supplied candle open
 only when it is inside the 1H entry zone. Stop-first resolves same-bar conflicts.
 """
 from __future__ import annotations
-import argparse,csv,json
+import argparse,csv,json,math
 from datetime import datetime,timezone
 from pathlib import Path
 
@@ -17,6 +17,15 @@ def _load(path):
 
 def process(ledger,decision,candle,costs=None):
     costs=costs or {}; t=int(candle["time"])
+    spread=float(costs.get("spread_price",0)); slip=float(costs.get("slippage_price",0))
+    commission=float(costs.get("commission_price_per_side",0))
+    cap=costs.get("max_spread_price")
+    if not all(math.isfinite(x) for x in (spread,slip,commission)) or min(spread,slip,commission)<0:
+        raise ValueError("Spread, slippage and commission must be finite and non-negative")
+    if costs.get("require_spread_limit", False):
+        if cap is None or not math.isfinite(float(cap)) or float(cap)<=0 or spread>float(cap):
+            return ledger,{"status":"spread_gate_wait","opened":False,"closed":0,
+                           "warning":"Paper entry blocked: no valid spread cap or observed spread exceeds cap."}
     if ledger.get("last_candle_time") is not None and t<=int(ledger["last_candle_time"]):
         return ledger,{"status":"duplicate_or_old_candle","opened":False,"closed":0}
     trades=ledger.setdefault("trades",[]); closed=0
@@ -34,13 +43,13 @@ def process(ledger,decision,candle,costs=None):
             px=min(stop,float(candle["open"])) if side=="BUY" else max(stop,float(candle["open"]))
             px=px-half if side=="BUY" else px+half
             active.update(status="CLOSED",exit_time=t,exit_price=px,exit_reason="STOP_FIRST" if target_hits else "STOP",
-              net_pnl_price=round((px-float(active["entry"])) if side=="BUY" else (float(active["entry"])-px),5))
+              net_pnl_price=round(((px-float(active["entry"])) if side=="BUY" else (float(active["entry"])-px))-2*commission,5))
             closed+=1
         elif target_hits:
             # Paper ledger exits full size at first target touched; no invented partial fills.
             i=min(target_hits); px=targets[i]-half if side=="BUY" else targets[i]+half
             active.update(status="CLOSED",exit_time=t,exit_price=px,exit_reason=f"TP{i+1}",
-              net_pnl_price=round((px-float(active["entry"])) if side=="BUY" else (float(active["entry"])-px),5))
+              net_pnl_price=round(((px-float(active["entry"])) if side=="BUY" else (float(active["entry"])-px))-2*commission,5))
             closed+=1
     opened=False
     side=str(decision.get("decision","WAIT")).upper()
@@ -63,7 +72,8 @@ def process(ledger,decision,candle,costs=None):
     ledger["last_candle_time"]=t
     ledger["updated_at"]=datetime.now(timezone.utc).isoformat()
     return ledger,{"status":"ok","opened":opened,"closed":closed,"open_positions":sum(x["status"]=="OPEN" for x in trades),
-      "warning":"Paper simulation only. Supply broker-matched closed OHLC and costs; no live order was sent."}
+      "warning":"Paper simulation only. Supply broker-matched closed OHLC and costs; no live order was sent.",
+      "commission_price_per_side":commission,"spread_price":spread,"slippage_price":slip}
 
 def save(path,ledger):
     Path(path).parent.mkdir(parents=True,exist_ok=True)
@@ -76,9 +86,11 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--ledger",default="data/paper-trades.json")
     ap.add_argument("--decision",required=True); ap.add_argument("--candle",required=True)
     ap.add_argument("--spread-price",type=float,default=0); ap.add_argument("--slippage-price",type=float,default=0)
+    ap.add_argument("--commission-price-per-side",type=float,default=0)
+    ap.add_argument("--max-spread-price",type=float,default=0)
     a=ap.parse_args(); ledger=_load(a.ledger)
     decision=json.loads(Path(a.decision).read_text(encoding="utf-8"))
     candle=json.loads(Path(a.candle).read_text(encoding="utf-8"))
-    ledger,result=process(ledger,decision,candle,{"spread_price":a.spread_price,"slippage_price":a.slippage_price})
+    ledger,result=process(ledger,decision,candle,{"spread_price":a.spread_price,"slippage_price":a.slippage_price,"commission_price_per_side":a.commission_price_per_side,"max_spread_price":a.max_spread_price,"require_spread_limit":True})
     save(a.ledger,ledger); print(json.dumps(result,indent=2))
 if __name__=="__main__": main()
