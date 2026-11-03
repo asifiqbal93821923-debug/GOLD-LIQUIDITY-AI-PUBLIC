@@ -7,6 +7,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from math import isfinite
 from typing import Any
+try:
+    from .market_data import to_epoch_seconds
+except ImportError:
+    from market_data import to_epoch_seconds
 
 TF_SECONDS = {"5m": 300, "15m": 900, "1h": 3600, "4h": 14400}
 
@@ -30,7 +34,7 @@ def audit_candle_history(rows: list[dict[str, Any]], timeframe: str,
             raw_time = row.get("time")
             if isinstance(raw_time, bool):
                 raise ValueError("INVALID_TIMESTAMP")
-            stamp = int(float(raw_time))
+            stamp = to_epoch_seconds(raw_time)
             values = [float(row[k]) for k in ("open", "high", "low", "close")]
             if not all(isfinite(v) for v in values):
                 raise ValueError("NON_FINITE_OHLC")
@@ -53,7 +57,7 @@ def audit_candle_history(rows: list[dict[str, Any]], timeframe: str,
             reason = "INVALID_ROW"
             if isinstance(row, dict):
                 try:
-                    float(row.get("time"))
+                    to_epoch_seconds(row.get("time"))
                 except (TypeError, ValueError):
                     reason = "INVALID_TIMESTAMP"
                 else:
