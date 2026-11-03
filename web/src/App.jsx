@@ -4,7 +4,9 @@ import { Activity, AlertTriangle, BarChart3, CandlestickChart, Clock3, Layers3, 
 
 const timeframes=['3m','5m','15m','30m','1h','4h','1D'];
 const labels={ '3m':'৩ মিনিট','5m':'৫ মিনিট','15m':'১৫ মিনিট','30m':'৩০ মিনিট','1h':'১ ঘণ্টা','4h':'৪ ঘণ্টা','1D':'১ দিন' };
-const API='';
+let API_BASE=(import.meta.env.VITE_API_BASE_URL||'').trim();
+while(API_BASE.endsWith('/')) API_BASE=API_BASE.slice(0,-1);
+const apiUrl=path=>API_BASE+(path.startsWith('/')?path:'/'+path);
 const ZONE_COLORS={bullish:'#27bd91',bearish:'#e16f7a'};
 
 function parseCsv(text){
@@ -206,7 +208,7 @@ export default function App(){
     try{
       let rows=[],kind='historical_import';
       try{
-        const res=await fetch(API+'/api/market/candles?timeframe='+encodeURIComponent(frame)+'&limit=3000');
+        const res=await fetch(apiUrl('/api/market/candles?timeframe='+encodeURIComponent(frame)+'&limit=3000'));
         if(res.ok){
           const data=await res.json();
           rows=data.data||[];
@@ -225,16 +227,16 @@ export default function App(){
     }finally{setLoading(false);}
   },[tf]);
 
-  useEffect(()=>{fetch('/api/health').then(r=>r.ok?r.json():Promise.reject()).then(()=>setApi('online')).catch(()=>setApi('offline'));
-    fetch('/api/config/status').then(r=>r.ok?r.json():null).then(setConfig).catch(()=>setConfig(null));},[]);
+  useEffect(()=>{fetch(apiUrl('/api/health')).then(r=>r.ok?r.json():Promise.reject()).then(()=>setApi('online')).catch(()=>setApi('offline'));
+    fetch(apiUrl('/api/config/status')).then(r=>r.ok?r.json():null).then(setConfig).catch(()=>setConfig(null));},[]);
   useEffect(()=>{loadCandles(tf);},[tf,loadCandles]);
 
 
   useEffect(()=>{
     const timer=window.setInterval(()=>{
       loadCandles(tf);
-      fetch('/api/config/status').then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
-      fetch('/api/market/quote').then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
+      fetch(apiUrl('/api/config/status')).then(r=>r.ok?r.json():null).then(setConfig).catch(()=>{});
+      fetch(apiUrl('/api/market/quote')).then(r=>r.ok?r.json():null).then(setQuoteInfo).catch(()=>{});
     },30000);
     return ()=>window.clearInterval(timer);
   },[tf,loadCandles]);
@@ -244,7 +246,7 @@ export default function App(){
     setImporting(true);setMessage('');
     try{
       const rows=parseCsv(await file.text());
-      const res=await fetch('/api/market/candles/import',{method:'POST',headers:{'Content-Type':'application/json'},
+      const res=await fetch(apiUrl('/api/market/candles/import'),{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({symbol:'XAUUSD',timeframe:tf,source:'CSV: '+file.name,candles:rows})});
       const result=await res.json();
       if(!res.ok) throw new Error(result.detail||result.message||'Import failed');
@@ -259,11 +261,11 @@ export default function App(){
     try{
       const frames={};let allFresh=true;
       for(const frame of ['4h','1h','15m']){
-        const res=await fetch('/api/market/candles?timeframe='+frame+'&limit=1000');
+        const res=await fetch(apiUrl('/api/market/candles?timeframe='+frame+'&limit=1000'));
         const d=await res.json();frames[frame]=d.data||[];if(d.live!==true) allFresh=false;
       }
-      const quoteRes=await fetch('/api/market/quote');const quote=await quoteRes.json();setQuoteInfo(quote);
-      const res=await fetch('/api/analysis/gold-report',{method:'POST',headers:{'Content-Type':'application/json'},
+      const quoteRes=await fetch(apiUrl('/api/market/quote'));const quote=await quoteRes.json();setQuoteInfo(quote);
+      const res=await fetch(apiUrl('/api/analysis/gold-report'),{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({timeframes:frames,data_fresh:allFresh,spread_acceptable:quote.acceptable===true})});
       const data=await res.json();if(!res.ok)throw new Error(data.detail||'Report failed');setReport(data);
     }catch(e){setMessage('Analysis Error: '+e.message);}
@@ -273,10 +275,10 @@ export default function App(){
   const runBacktest=async()=>{
     setBacktest(null);setMessage('');
     try{
-      const res=await fetch('/api/market/candles?timeframe=1h&limit=5000');
+      const res=await fetch(apiUrl('/api/market/candles?timeframe=1h&limit=5000'));
       const d=await res.json();
       if((d.data||[]).length<50) throw new Error('Backtest-এর জন্য অন্তত ৫০টি ১H Candle Import করুন।');
-      const result=await fetch('/api/backtest/alpha-1h',{method:'POST',headers:{'Content-Type':'application/json'},
+      const result=await fetch(apiUrl('/api/backtest/alpha-1h'),{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({candles:d.data,costs})});
       const data=await result.json();if(!result.ok)throw new Error(data.detail||'Backtest failed');
       setBacktest(data);
@@ -290,12 +292,12 @@ export default function App(){
     try{
       const frames={};
       for(const frame of ['4h','1h','15m','5m']){
-        const res=await fetch('/api/market/candles?timeframe='+frame+'&limit=3000');
+        const res=await fetch(apiUrl('/api/market/candles?timeframe='+frame+'&limit=3000'));
         const d=await res.json();frames[frame]=d.data||[];
       }
       for(const frame of ['4h','1h','15m']) if(frames[frame].length<50) throw new Error(frame.toUpperCase()+'-এ অন্তত ৫০টি Candle দরকার।');
       if(frames['5m'].length<30) delete frames['5m'];
-      const res=await fetch('/api/backtest/gold-mtf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timeframes:frames,costs})});
+      const res=await fetch(apiUrl('/api/backtest/gold-mtf'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timeframes:frames,costs})});
       const data=await res.json();if(!res.ok)throw new Error(data.detail||data.reason||'MTF backtest failed');setMtfBacktest(data);
     }catch(e){setMessage('MTF Backtest Error: '+e.message);}
     finally{setMtfBusy(false);}
