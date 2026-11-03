@@ -15,9 +15,10 @@
 - [ ] Receive the remaining LuxAlgo source and complete source audit.
 - [x] Receive complete Wick Sequence Breakout (WSB) Pine v6 source and document logic, license and validation requirements.
 - [x] Receive complete LuxAlgo AI Channels (Clustering) Pine v5 source and document algorithm, license and validation requirements.
-- [x] Create unified engine feature-selection and architecture blueprint (docs/UNIFIED_GOLD_ENGINE_BLUEPRINT.md).
-- [ ] Create isolated modules, attribution/license records, settings and parity fixtures for accepted features.
-- [ ] Build a confluence layer that prevents correlated indicators from being double-counted.
+- [x] Create unified engine feature-selection and architecture blueprint.
+- [x] Add initial WAIT-first confluence decision gate and API contract.
+- [ ] Port Alpha/WSB/AI Channels and complete SMC only after source audit; add parity fixtures.
+- [ ] Build full confluence integration from actual calculated engine outputs, with correlated-feature controls.
 
 ## Phase 3 — Chart and market structure
 - [ ] Render real OHLC candles on the chart for 1m, 5m, 15m, 30m, 1h, 4h and 1D.
@@ -28,7 +29,7 @@
 
 ## Phase 4 — Trade planning and validation
 - [ ] Add entry trigger, invalidation, SL, TP1/TP2/TP3 and R-multiple planner.
-- [ ] Enforce WAIT when confirmation or minimum risk constraints are absent.
+- [x] Add initial WAIT-first confluence gate that rejects missing, unconfirmed or conflicting evidence (not yet connected to calculated indicator engines).
 - [ ] Historical replay, backtesting, walk-forward testing and anti-repainting validation.
 - [ ] Include spread, commission, slippage and session sensitivity in test reports.
 
@@ -42,6 +43,7 @@
 - [x] React + Vite frontend foundation and build workflow.
 - [x] FastAPI backend foundation.
 - [x] Alpha Signal Engine initial port, endpoint and basic tests.
-- [x] CORS now permits the POST analysis route.
+- [x] CORS now permits POST analysis routes.
 - [x] Four engine families reviewed and documented; unified feature-selection blueprint committed.
-- [ ] No production market feed, parity certification, complete chart analysis, trade planner or Android package yet.
+- [x] Initial unified decision module, API endpoint and six unit tests committed; CI verification pending.
+- [ ] No production market feed, Pine parity certification, complete chart analysis, calculated unified trade planner or Android package yet.
