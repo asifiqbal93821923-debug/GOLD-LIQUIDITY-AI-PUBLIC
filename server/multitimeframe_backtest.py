@@ -132,7 +132,8 @@ def run_gold_mtf_backtest(timeframes:dict[str,list[dict[str,Any]]],
     result.update({
       "strategy":"Gold Report AI multi-timeframe causal replay",
       "timeframe":"1h_primary","signals_evaluated":evaluated,
-      "accepted_signals":len(events),"veto_counts":dict(vetoes),\n      "excluded_unclosed_candles":excluded_unclosed,
+      "accepted_signals":len(events),"veto_counts":dict(vetoes),
+      "excluded_unclosed_candles":excluded_unclosed,
       "timeframe_policy":{"4h":"latest fully closed macro candle","1h":"primary Alpha direction and trade plan",
         "15m":"latest fully closed SMC setup","5m":"optional latest fully closed WSB refinement"},
       "scope_warning":"Research replay only. Uses current Python adapters, not certified Pine parity. 1H trade plan is uncalibrated; spread/costs are user assumptions. OHLC bars cannot resolve intrabar order, handled conservatively stop-first."})
