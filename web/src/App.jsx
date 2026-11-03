@@ -85,7 +85,7 @@ export default function App(){
   const [counts,setCounts]=useState({});
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
-  const [report,setReport]=useState(null);
+  const [report,setReport]=useState(null);\n  const [quoteInfo,setQuoteInfo]=useState(null);
   const [importing,setImporting]=useState(false);
   const fileRef=useRef(null);
 
@@ -123,13 +123,14 @@ export default function App(){
   const runReport=async()=>{
     setMessage('');setReport(null);
     try{
-      const frames={};
+      const frames={};let allFresh=true;
       for(const frame of ['4h','1h','15m']){
         const res=await fetch('/api/market/candles?timeframe='+frame+'&limit=1000');
-        const d=await res.json();frames[frame]=d.data||[];
+        const d=await res.json();frames[frame]=d.data||[];if(d.live!==true) allFresh=false;
       }
+      const quoteRes=await fetch('/api/market/quote');const quote=await quoteRes.json();setQuoteInfo(quote);
       const res=await fetch('/api/analysis/gold-report',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({timeframes:frames,data_fresh:false,spread_acceptable:false})});
+        body:JSON.stringify({timeframes:frames,data_fresh:allFresh,spread_acceptable:quote.acceptable===true})});
       const data=await res.json();if(!res.ok)throw new Error(data.detail||'Report failed');setReport(data);
     }catch(e){setMessage('Analysis Error: '+e.message);}
   };
@@ -174,7 +175,7 @@ export default function App(){
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
         <div className="empty-state"><AlertTriangle size={22}/><b>Chart Overlay Pending</b><span>Engine zone data exists; visual chart mapping and multi-timeframe anchoring remain under development.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
-        <div className="empty-state"><Radio size={22}/><b>Live feed not connected</b><span>Historical CSV data is supported. Live MT5 bridge, verified spread and execution-cost data are not connected.</span></div></article>
+        <div className="empty-state"><Radio size={22}/><b>Live feed not connected</b><span>Historical CSV data is supported. {config?.live_data?'MT5 bridge is recently connected.':'Live MT5 bridge is not currently active.'} Spread: {quoteInfo?.spread_points??'—'} points / limit {quoteInfo?.max_spread_points??'not configured'}. Commission and slippage model remain pending.</span></div></article>
     </section>
     <footer><span><Clock3 size={13}/> BUILD 0.4.0 · 1H PRIMARY</span><span>Historical analysis only · No broker orders are placed</span></footer>
   </main>;
