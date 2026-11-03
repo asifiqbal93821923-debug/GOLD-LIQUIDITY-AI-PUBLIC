@@ -107,7 +107,6 @@ jobs:
             python scripts/compare_tradingview_signals.py \
               --reference data/phase2/pine_reference_1h.csv \
               --candidate reports/phase2/python-signals-1h.csv \
-              --signal-column phase2_signal \
               --output reports/phase2/tradingview-parity.json
           fi
       - name: Upload all reports and provenance manifest
