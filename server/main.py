@@ -14,6 +14,7 @@ try:
     from .gold_report import build_gold_report
     from .market_data import CandleStore, validate_candles, to_epoch_seconds
     from .backtest import run_alpha_1h_backtest
+    from .multitimeframe_backtest import run_gold_mtf_backtest
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
@@ -21,6 +22,7 @@ except ImportError:
     from gold_report import build_gold_report
     from market_data import CandleStore, validate_candles, to_epoch_seconds
     from backtest import run_alpha_1h_backtest
+    from multitimeframe_backtest import run_gold_mtf_backtest
 
 app = FastAPI(title="Project Indicator App API", version="0.4.0")
 app.add_middleware(CORSMiddleware,
@@ -47,6 +49,11 @@ class CandleImportRequest(BaseModel):
 
 class BacktestRequest(BaseModel):
     candles: list[Candle] = Field(min_length=50, max_length=5000)
+    settings: dict = Field(default_factory=dict)
+    costs: dict = Field(default_factory=dict)
+
+class GoldBacktestRequest(BaseModel):
+    timeframes: dict[str, list[Candle]]
     settings: dict = Field(default_factory=dict)
     costs: dict = Field(default_factory=dict)
 
@@ -176,6 +183,13 @@ def get_market_quote(symbol: str="XAUUSD"):
       "spread_points":round(quote["spread_points"],2),"max_spread_points":threshold or None,
       "fresh":fresh,"acceptable":acceptable,"source":quote["source"],"updated_at":quote["updated_at"],
       "message":"Spread within configured limit." if acceptable else "Spread gate closed: quote stale or MAX_SPREAD_POINTS not configured/exceeded."}
+
+
+@app.post("/api/backtest/gold-mtf")
+def gold_mtf_backtest(payload: GoldBacktestRequest):
+    timeframes={tf:[x.model_dump() for x in rows] for tf,rows in payload.timeframes.items()
+      if tf in {"4h","1h","15m","5m"}}
+    return run_gold_mtf_backtest(timeframes,costs=payload.costs,settings=payload.settings)
 
 @app.post("/api/backtest/alpha-1h")
 def alpha_1h_backtest(payload: BacktestRequest):
