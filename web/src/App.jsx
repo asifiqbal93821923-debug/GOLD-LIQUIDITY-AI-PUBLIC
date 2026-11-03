@@ -34,41 +34,48 @@ const FREE_INTRADAY_URL='https://xaus.com/api/v1/intraday?symbol=xau&hours=48';
 const FREE_BUCKET_SECONDS={'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400};
 async function loadFreePublicGoldCandles(frame){
   if(frame==='3m') throw new Error('ফ্রি পাবলিক Feed ৩ মিনিটের ডেটা দেয় না। ৫M বা ১৫M বেছে নিন।');
-  // Prefer the cumulative scheduled archive, then the latest snapshot, then direct XAUS.
-  let payload=null, snapshotSource='scheduled_history_archive';
+  const candidates=[];
   for(const file of ['market-history.json','market-snapshot.json']){
     try{
       const response=await fetch(import.meta.env.BASE_URL+'data/'+file,{cache:'no-store',headers:{Accept:'application/json'}});
       if(response.ok){
         const candidate=await response.json();
-        if(Array.isArray(candidate.points)&&candidate.points.length){payload=candidate;break;}
+        if(Array.isArray(candidate.points)&&candidate.points.length)candidates.push({payload:candidate,source:file==='market-history.json'?'scheduled_history_archive':'scheduled_snapshot'});
       }
     }catch(_){}
   }
-  if(!payload){
-    snapshotSource='direct_public_api';
-    const response=await fetch(FREE_INTRADAY_URL,{headers:{Accept:'application/json'}});
-    if(!response.ok) throw new Error('ফ্রি Gold Feed unavailable: HTTP '+response.status);
-    payload=await response.json();
+  try{
+    const response=await fetch(FREE_INTRADAY_URL,{cache:'no-store',headers:{Accept:'application/json'}});
+    if(response.ok)candidates.push({payload:await response.json(),source:'direct_public_api'});
+  }catch(_){}
+  let selected=null, lastIssue='কোনো Feed Source থেকে ডেটা পাওয়া যায়নি।';
+  for(const candidate of candidates){
+    const raw=Array.isArray(candidate.payload.points)?candidate.payload.points:[];
+    const byTime=new Map();
+    for(const point of raw){
+      const time=Number(point?.t),price=Number(point?.p);
+      if(Number.isSafeInteger(Math.floor(time))&&Number.isFinite(time)&&Number.isFinite(price)&&time>0&&price>0)byTime.set(Math.floor(time),price);
+    }
+    const clean=[...byTime.entries()].map(([time,price])=>({time,price})).sort((a,b)=>a.time-b.time);
+    if(clean.length<3){lastIssue='Feed-এ অন্তত ৩টি valid sample নেই।';continue;}
+    const latestAge=Date.now()/1000-clean[clean.length-1].time;
+    if(latestAge<0||latestAge>900){lastIssue='Feed-এর সর্বশেষ sample stale বা future timestamp।';continue;}
+    selected={payload:candidate.payload,clean,latestAge,source:candidate.source};break;
   }
-  const points=Array.isArray(payload.points)?payload.points:[];
-  const clean=points.map(p=>({time:Number(p.t),price:Number(p.p)}))
-    .filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.price)&&p.price>0)
-    .sort((a,b)=>a.time-b.time);
-  if(clean.length<3) throw new Error('ফ্রি Feed-এ পর্যাপ্ত sampled price নেই।');
-  const latestAge=Date.now()/1000-clean[clean.length-1].time;
-  if(latestAge<0||latestAge>900) throw new Error('ফ্রি Feed-এর সর্বশেষ sample ১৫ মিনিটের বেশি পুরোনো; stale data দেখানো বন্ধ রাখা হয়েছে।');
+  if(!selected)throw new Error(lastIssue+' Stale data ব্যবহার করা হয়নি।');
+  const {payload,clean,latestAge,source}=selected;
   const bucket=FREE_BUCKET_SECONDS[frame];
-  if(!bucket) throw new Error('এই timeframe-এর জন্য ফ্রি Feed সমর্থিত নয়।');
+  if(!bucket)throw new Error('এই timeframe-এর জন্য ফ্রি Feed সমর্থিত নয়।');
   const grouped=new Map();
   for(const p of clean){
     const start=Math.floor(p.time/bucket)*bucket;
     const row=grouped.get(start);
-    if(!row) grouped.set(start,{time:start,open:p.price,high:p.price,low:p.price,close:p.price,volume:0});
-    else {row.high=Math.max(row.high,p.price);row.low=Math.min(row.low,p.price);row.close=p.price;}
+    if(!row)grouped.set(start,{time:start,open:p.price,high:p.price,low:p.price,close:p.price,volume:0});
+    else{row.high=Math.max(row.high,p.price);row.low=Math.min(row.low,p.price);row.close=p.price;}
   }
   const rows=[...grouped.values()].sort((a,b)=>a.time-b.time);
-  return {rows,source:'free_public_sampled',sampleAge:Math.round(latestAge),state:payload.data_state?.status||'unknown',feedSource:snapshotSource};
+  if(rows.length<2)throw new Error('এই Timeframe-এ যথেষ্ট sampled candle নেই।');
+  return {rows,source:'free_public_sampled',sampleAge:Math.round(latestAge),state:payload.data_state?.status||'unknown',feedSource:source};
 }
 
 function ChartPanel({timeframe,setTimeframe,candles,loading,onReload,report,dataKind}){
@@ -209,7 +216,7 @@ export default function App(){
       if(!rows.length){
         const free=await loadFreePublicGoldCandles(frame);
         rows=free.rows;kind=free.source;
-        setMessage('ফ্রি পাবলিক Gold Feed চলছে ('+(free.feedSource==='scheduled_snapshot'?'GitHub Actions snapshot':'direct XAUS fallback')+'): ৫-মিনিটে সংগৃহীত sample থেকে '+frame.toUpperCase()+' bar তৈরি। এটি XM Broker Tick/আসল OHLCV নয়; ট্রেড execution-এর জন্য ব্যবহার করবেন না।');
+        setMessage('ফ্রি পাবলিক Gold Feed চলছে ('+({scheduled_history_archive:'GitHub Actions Historical Archive',scheduled_snapshot:'GitHub Actions Snapshot',direct_public_api:'Direct XAUS Fallback'}[free.feedSource]||free.feedSource)+'): সর্বশেষ sample '+free.sampleAge+' সেকেন্ড পুরোনো। ৫-মিনিটে সংগৃহীত indicative sample থেকে '+frame.toUpperCase()+' bar তৈরি। এটি XM Broker Tick/আসল OHLCV নয়; ট্রেড execution-এর জন্য ব্যবহার করবেন না।');
       }
       setCandles(rows);setDataKind(kind);setCounts(old=>({...old,[frame]:rows.length}));
       return rows;
