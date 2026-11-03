@@ -182,6 +182,13 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
     prev_display = display_dir[last-1] if last else 1
     long_sig = display_dir[last] == 1 and prev_display == -1
     short_sig = display_dir[last] == -1 and prev_display == 1
+    signal_history=[]
+    for i in range(1,n):
+        if display_dir[i]!=display_dir[i-1]:
+            signal_history.append({"index":i,"time":candles[i].get("time"),
+              "signal":"BUY" if display_dir[i]==1 else "SELL",
+              "direction":"bullish" if display_dir[i]==1 else "bearish","close":c[i]})
+    signal_history=signal_history[-500:]
     bucket = buckets[last]
     regime = "trending" if not flat_guard[last] else "flat"
     strength = None
@@ -191,7 +198,7 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
         "status":"ok", "engine":"Alpha Signal Engine Pro", "source_attribution":"MarkitTick",
         "timestamp":candles[last].get("time"), "symbol":candles[last].get("symbol","XAUUSD"),
         "direction":"bullish" if display_dir[last] == 1 else "bearish",
-        "signal":"BUY" if long_sig else "SELL" if short_sig else "WAIT",
+        "signal":"BUY" if long_sig else "SELL" if short_sig else "WAIT", "signal_history":signal_history,
         "regime":regime, "breakout_override":"engaged" if breakout[last] else "nominal" if p["breakout_override"] else "off",
         "trend_line":trend[last], "atr_previous":atr[last], "trend_strength":strength,
         "volatility_fingerprint":({"bucket":bucket,"label":vf_names[bucket]} if p["volatility_fingerprint"] and bucket is not None else None),
