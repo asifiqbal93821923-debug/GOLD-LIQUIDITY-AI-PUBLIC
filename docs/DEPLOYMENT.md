@@ -42,3 +42,17 @@ GitHub Pages serves only the static React/PWA frontend; it does not run FastAPI.
 5. Verify `/api/health`, `/api/config/status`, candle retrieval and quote status on the API host, then reload the Pages app.
 
 If `GOLD_TERMINAL_API_BASE_URL` is unset, the frontend uses same-origin relative API paths. That is useful for local/reverse-proxy deployment but **will not connect FastAPI through GitHub Pages**. Never put bridge tokens or provider secrets in a GitHub Actions variable or frontend build variable.
+
+
+## Free external PostgreSQL storage (Neon)
+
+The API supports an external PostgreSQL database without changing the Render Free web service:
+
+1. Create a project on the Neon Free plan at https://neon.com and choose the nearest available region to the Render service.
+2. In Neon, open **Connect** and copy the PostgreSQL connection string. Keep the password private.
+3. In the Render dashboard for the `gold-terminal-api` service, open **Environment** and add `DATABASE_URL` with that connection string. Do not put this value in GitHub, the frontend, or chat.
+4. Save the environment change and wait for the Render deploy/restart to finish.
+5. Open `/api/config/status`. The `historical_store` field should report `postgresql`. If it reports `sqlite`, the environment variable was not applied or the service has not restarted.
+6. Import historical candles again or reconnect the MT5 bridge. Existing SQLite rows on the Render Free filesystem are not automatically migrated to Neon; export/import them before relying on the new database if those rows must be retained.
+
+The app uses PostgreSQL when `DATABASE_URL` is present and falls back to SQLite when it is absent. The free database may scale to zero or suspend when its provider quota is reached; this is a free-tier hobby setup, not a guaranteed always-on production database. Monitor the provider's current quotas and keep an independent export of important historical candles.
