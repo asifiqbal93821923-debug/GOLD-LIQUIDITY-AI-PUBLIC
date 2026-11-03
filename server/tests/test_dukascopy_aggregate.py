@@ -23,23 +23,26 @@ class DukascopyAggregateTests(unittest.TestCase):
         return rows
 
     def test_emits_only_complete_contiguous_bucket(self):
-        rows = self.minute_rows(1_700_000_000, 15)
-        bars, report = aggregate(rows, 900, now=1_700_001_000)
+        start = 1_700_000_000 - (1_700_000_000 % 900)
+        rows = self.minute_rows(start, 15)
+        bars, report = aggregate(rows, 900, now=start + 1_000)
         self.assertEqual(len(bars), 1)
         self.assertEqual(report["source_m1_rows"], 15)
         self.assertEqual(report["partial_or_gapped_buckets_excluded"], 0)
 
     def test_excludes_bucket_when_one_source_minute_is_missing(self):
-        rows = self.minute_rows(1_700_000_000, 15, omit=(7,))
-        bars, report = aggregate(rows, 900, now=1_700_001_000)
+        start = 1_700_000_000 - (1_700_000_000 % 900)
+        rows = self.minute_rows(start, 15, omit=(7,))
+        bars, report = aggregate(rows, 900, now=start + 1_000)
         self.assertEqual(bars, [])
         self.assertEqual(report["candidate_buckets"], 1)
         self.assertEqual(report["partial_or_gapped_buckets_excluded"], 1)
         self.assertEqual(report["source_m1_rows"], 0)
 
     def test_excludes_unclosed_aggregation_window(self):
-        rows = self.minute_rows(1_700_000_000, 15)
-        bars, report = aggregate(rows, 900, now=1_700_000_899)
+        start = 1_700_000_000 - (1_700_000_000 % 900)
+        rows = self.minute_rows(start, 15)
+        bars, report = aggregate(rows, 900, now=start + 899)
         self.assertEqual(bars, [])
         self.assertEqual(report["bars"], 0)
 
