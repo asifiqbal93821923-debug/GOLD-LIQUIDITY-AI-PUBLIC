@@ -1,132 +1,105 @@
-# Unified Gold Intelligence Engine — Integration Blueprint
+# Unified Gold Intelligence Engine — Feature Selection & Architecture
 
-## Purpose
-Create one explainable XAUUSD analysis system from the four user-submitted indicator families. This is an architecture and feature-selection specification, not a claim that the combined engine is already implemented or profitable.
+## Product objective
+Build one XAUUSD analysis application from four independently testable source families. It should explain market condition and produce BUY, SELL or WAIT only after confirmed evidence and risk checks. The system is an analytical decision-support tool, not a promise of profit or a view into private institutional order books.
 
-Primary timeframe hierarchy:
-- 4H: macro structure and major supply/demand context.
-- 1H: primary directional bias and dealing range (the user's main decision timeframe).
-- 15M: setup development, BOS/CHoCH confirmation, liquidity sweep/reclaim and zone reaction.
-- 5M: precise entry trigger only after higher-timeframe alignment.
-- Optional 1D: major reference levels and broader context.
+## Timeframe hierarchy
+| Timeframe | Authority | Responsibilities |
+|---|---|---|
+| 4H | Macro context | Major trend, external swing range, major liquidity and prior-week/month levels |
+| 1H | Primary decision timeframe | Main bias, swing structure, primary supply/demand and trade direction |
+| 15m | Setup timeframe | Internal structure, retest, FVG/OB interaction and WSB formation |
+| 5m | Execution confirmation | Trigger candle, local rejection and risk refinement |
+| 3m | Optional display only | Never recalculates or moves 1H/4H master zones |
 
-All calculations must use standard OHLCV candles with explicit timezone/session and volume provenance. Signals default to closed-candle confirmation. No lookahead, repainting, or backdated signal timestamps.
+A lower timeframe may refine an entry but cannot independently reverse the 1H bias. All higher-timeframe inputs must be from completed bars for confirmed decisions.
 
-## Source inventory and integration decisions
+## Source-family selection
 
-| Source | Source role | Keep/adapt | Do not treat as |
-|---|---|---|---|
-| Alpha Signal Engine Pro (MarkitTick, Pine v6, CC BY-NC-SA 4.0) | Trend, volatility and momentum regime | Recursive trend state, ATR/volatility fingerprint, slope/stall, candle range and volume filters, confirmed direction flips | Complete trade planner or S/R engine |
-| Smart Money Concepts [LuxAlgo] (Pine v5, CC BY-NC-SA 4.0; partial source received) | Structure and liquidity context | Candidate swing/internal structure, BOS/CHoCH, candle-derived OB, EQH/EQL, FVG, HTF levels, premium/discount | Verified institutional orders or complete implementation until remaining source is supplied |
-| Wick Sequence Breakout (Uncle_the_shooter, Pine v6, MPL-2.0) | Rejection/absorption and breakout setup | Wick sequence, high-volume/low-range absorption candidate, formation range, breakout/retest and optional ATR/RR risk references | True bid/ask delta, footprint or actual buyer/seller volume |
-| AI Channels (Clustering) [LuxAlgo] (Pine v5, CC BY-NC-SA 4.0) | Adaptive distribution/channel regime | Upper/central/lower clusters, dispersion envelope, price location, denoised regime | Forecast, supply/demand zone or standalone entry signal |
+### Engine 01 — Alpha Signal Engine Pro [MarkitTick]
+**Keep:** adaptive ATR/dynamic-band trend state, trend flip, volatility regime, slope/stall context, range percentile, relative volume and breakout override as one trend/momentum family.
 
-### Source-specific defects and controls
-- Alpha: current Python port is initial only. Preserve Pine warm-up, prior-bar offsets, percentile ranks and recursive state; parity is not certified.
-- SMC: received source is incomplete. Remaining source is required to audit pivot confirmation, OB creation/mitigation, EQH/EQL matching, FVG, MTF calls and alert timing. Do not reconstruct missing proprietary logic by guesswork.
-- WSB: estimated bull/bear pressure is close-location volume allocation, not true buy/sell volume. If volume is absent/unreliable, disable absorption/pressure filters. If a bar ambiguously breaks both formation boundaries, return WAIT. Same-bar SL/TP collisions require conservative handling or lower-timeframe data.
-- AI Channels: Pine convergence checks only first three centroids although K can exceed three; empty clusters/dispersion and loop boundary need tests. Keep a pine_parity variant separate from any corrected all-centroid implementation. Use as context only.
+**Adapt:** separate raw source-parity output from production-safe output; guard warmup and missing volume; ensure confirmed-bar event semantics.
 
-## Unified architecture
+**Do not double count:** slope, trend direction, band position and breakout override are correlated parts of one engine.
 
-1. **Market Data Adapter**
-   - One normalized XAUUSD OHLCV candle schema, UTC timestamps plus display timezone.
-   - Historical backfill and live stream, duplicate/out-of-order candle protection, gap detection.
-   - Record provider, symbol mapping, spread, volume type (tick/real/unknown) and data freshness.
-   - Never fabricate candles or expose API keys in the browser.
+**License:** source header is CC BY-NC-SA 4.0; preserve attribution and non-commercial/share-alike terms; commercial permission needed.
 
-2. **Timeframe Aggregator**
-   - Build/validate 5M, 15M, 1H, 4H and optional 1D candles from a consistent source where possible.
-   - Only expose a higher-timeframe candle to lower-timeframe logic after its close.
-   - No mixing candle boundaries from different feeds without explicit reconciliation.
+### Engine 02 — Smart Money Concepts [LuxAlgo]
+**Keep:** confirmed swing/internal BOS/CHoCH, swing anchors, candle-derived OB, EQH/EQL, confirmed FVG, prior D/W/M levels, premium/discount and strong/weak swing context.
 
-3. **Isolated Feature Engines**
-   - alpha_trend: direction, trend strength, ATR/volatility regime, slope, stall and flip.
-   - smc_structure: confirmed swings, BOS/CHoCH, EQH/EQL, OB/FVG, premium/discount and HTF levels (blocked from full port until source complete).
-   - wsb_setup: wick rejection sequence, absorption candidate, formation range, breakout/retest and expiry.
-   - ai_channel_context: cluster levels, dispersion, channel location and denoised state.
-   - Each module returns facts, timestamps, warm-up/data-quality flags and source/license metadata, not UI drawings.
+**Adapt:** 1H/4H anchors remain authoritative across 15m/5m/3m chart views; confirmed HTF data only; bounded arrays; safe reverse-index invalidation; freshness and mitigation state for zones.
 
-4. **Institutional-Style Context Layer (price-action proxies only)**
-   - Sweep-and-reclaim around confirmed equal highs/lows or prior session/day/week extremes.
-   - Displacement candle after a sweep or structure break.
-   - FVG/imbalance overlap and retest.
-   - Supply/demand candidate from origin candle plus displacement, with freshness, mitigation and invalidation.
-   - Premium/discount relative to a clearly defined 1H/4H dealing range.
-   - Explicitly label these as candle-derived proxies, never verified bank orders or institutional positions.
+**Do not double count:** swing and internal breaks for one event; OB/FVG/displacement from one impulse; EQH/EQL plus a sweep of the same pool.
 
-5. **Confluence and Decision Engine**
-   - Determine 4H macro bias, then 1H primary bias.
-   - 15M qualifies the setup; 5M times the entry.
-   - Independent evidence groups: (A) trend/regime, (B) structure/liquidity, (C) setup/trigger, (D) risk/data quality.
-   - Do not count correlated values twice: Alpha flip + Alpha slope are one trend family; AI channel location + denoised state are one channel family; WSB wick + absorption + volume split are one setup family; internal and swing breaks from the same event are not two independent votes.
-   - Hard vetoes: incomplete candle, stale/missing data, ambiguous dual breakout, invalidated zone, no valid stop, excessive spread, conflicting HTF bias unless explicitly in reversal mode.
-   - Output BUY / SELL only when higher-timeframe context, structure, entry trigger and risk agree. Otherwise WAIT with reason codes.
-   - Confidence is a transparent score of evidence and data quality, not a probability of profit.
+**License:** LuxAlgo CC BY-NC-SA 4.0; commercial use requires separate permission.
 
-6. **Trade Planner and Risk Engine**
-   - Entry zone from confirmed retest/rejection, not arbitrary current price.
-   - SL beyond structural invalidation with ATR buffer and minimum/maximum risk-distance checks.
-   - TP1/TP2/TP3 from next opposing structure/liquidity levels, with RR fallback only when no reliable level exists.
-   - Return RR per target, position-risk estimate only if account size/risk input is explicitly configured, and invalidate the plan when the premise fails.
-   - No broker order execution in initial release.
+### Engine 03 — Wick Sequence Breakout (WSB)
+**Keep:** multi-candle wick formation, optional ATR range filter, absorption-style volume/range condition, formation boundaries, breakout direction, expiry and ATR/RR target scaffolding.
 
-7. **Explanation and Dashboard**
-   - Bengali-first explanation: trend, structure, liquidity event, setup trigger, invalidation, risk and why WAIT.
-   - Chart-only overlays: confirmed swings, BOS/CHoCH, zones, FVG, sweep markers, entry/SL/TP. No lower indicator pane.
-   - Controls for timeframe, engine visibility, sensitivity and alert preferences.
-   - Show source and volume quality; never label estimated pressure as real buy/sell volume.
+**Adapt:** label volume split as candle-location estimate only; use tick volume only as broker-specific activity proxy; return WAIT if both boundaries break ambiguously; conservative stop-first when OHLC cannot reveal TP/SL order.
 
-## Feature selection: initial priority
+**Do not double count:** wick shape, absorption and range expansion are one WSB setup family.
 
-### P0 — Required for a meaningful first unified release
-1. Normalized XAUUSD data feed and reliable historical candles.
-2. 4H + 1H bias with 15M setup and 5M entry confirmation.
-3. Alpha trend/ATR regime (after parity tests).
-4. Confirmed swing structure and close-based BOS/CHoCH (after full SMC source audit).
-5. Sweep-and-reclaim around prior highs/lows and EQH/EQL.
-6. Supply/demand candidate zones with origin, freshness, mitigation and invalidation.
-7. WSB wick sequence + confirmed range breakout/retest (after parity tests).
-8. WAIT-first confluence and structural SL/TP planner.
-9. Bengali explanation and chart overlays.
+**License:** Mozilla Public License 2.0; retain required notices and comply with file-level copyleft requirements for modified MPL files.
 
-### P1 — Add after P0 is stable
-- FVG and displacement scoring.
-- AI Channels as range/trend context filter after K-means edge-case and parity tests.
-- Session windows (London/New York/overlap) with timezone/DST-safe configuration.
-- Spread-aware trade eligibility and economic-calendar high-impact event warning.
-- Previous day/week high-low and daily open.
-- Alerts and setup expiry.
+### Engine 04 — AI Channels (Clustering) [LuxAlgo]
+**Keep:** rolling close-price K-means clusters, upper/lower adaptive bands, center and denoised channel state as a context/regime family.
 
-### P2 — Later enhancements
-- True bid/ask delta, footprint or volume-at-price only if a suitable licensed feed is acquired.
-- Walk-forward optimization and regime-specific statistics.
-- Paper-trading journal, signal outcome analytics and calibrated confidence.
-- Android packaging after web/data/analysis core is stable.
+**Adapt:** handle empty clusters, sort centroids, check convergence across all K centroids, use bounded computation and explicit warmup. Preserve a source-parity variant separately from corrected behavior.
 
-## Additional requirements from the original project discussions
-- Professional supply/demand blueprint focused on 1H main chart and 4H confirmation.
-- Three-part institutional-style confluence: liquidity sweep/reclaim + displacement/momentum + imbalance/FVG/zone retest. These are observable price-action proxies, not institutional order-book data.
-- BUY/SELL/WAIT, entry, SL, TP1/TP2/TP3, confirmation status and plain Bengali reason.
-- 5M/15M/1H/4H/1D chart timeframes; chart annotations only.
-- Live/historical feed, not a TradingView runtime dependency.
-- Validate against identical TradingView-exported OHLCV fixtures; then replay, walk-forward, out-of-sample and paper test with spread/commission/slippage.
-- Web first, Android later; no order execution in the first release.
+**Do not use as:** forecast, SMC zone, independent BUY/SELL signal or proof of institutional positioning.
 
-## Validation gates before enabling signals
-1. Complete-source and license audit for every adapted engine.
-2. Unit tests for edge cases, warm-up, missing volume, MTF alignment and candle-close semantics.
-3. Golden fixture comparison against TradingView for identical OHLCV, timeframe and inputs.
-4. No-lookahead/replay/reload determinism tests.
-5. Historical replay, walk-forward and out-of-sample tests.
-6. Spread, commission, slippage and session sensitivity.
-7. Paper trading and monitoring before any live reliance.
+**License:** LuxAlgo CC BY-NC-SA 4.0; commercial use requires separate permission.
 
-A passing build is not proof of profitability. Do not advertise a win rate until independently measured on out-of-sample data.
+## Unified analysis pipeline
+1. **Data validation:** symbol, feed, timezone, OHLC integrity, candle-close state, spread and volume semantics.
+2. **4H macro context:** confirmed swing direction, major range and external levels.
+3. **1H primary context:** Alpha regime + SMC swing structure + AI channel context.
+4. **15m setup:** SMC internal structure, zone/FVG interaction and WSB formation/breakout.
+5. **5m trigger:** closed-candle confirmation, rejection/continuation and spread-aware entry.
+6. **Confluence resolver:** combine evidence by family, suppress correlated duplicates, detect conflicts and require minimum independent families.
+7. **Risk planner:** entry, invalidation, SL, TP1/TP2/TP3, R multiples, position sizing inputs and no-trade conditions.
+8. **Explanation layer:** Bengali reason codes describing what aligned, what conflicted and what is still unconfirmed.
 
-## Current implementation status
-- Source intake documentation exists for Engines 01–04.
-- Engine 01 has an initial Python/API port and basic tests; parity is pending.
-- Engines 02–04 are documented but not ported/parity-certified.
-- Engine 02 cannot be fully audited because the supplied source text is partial.
-- Production feed, unified confluence, trade planner, completed dashboard and Android package are not complete.
+## Initial decision policy (to calibrate, not a performance claim)
+- **BUY candidate:** 4H/1H bias bullish; 1H structure not invalidated; 15m bullish setup at a valid zone/liquidity context; 5m close confirms trigger; risk/reward and spread pass.
+- **SELL candidate:** mirrored bearish conditions.
+- **WAIT:** mixed HTF bias, unconfirmed break, no valid retest/trigger, stale/mitigated zone, insufficient independent evidence, high spread, missing data or ambiguous intrabar sequence.
+- One lower-TF signal cannot override 1H/4H.
+- Never issue a trade solely from AI Channels, one BOS/CHoCH label, one wick, or a single indicator score.
+
+Weights and thresholds must be learned/calibrated only on separated in-sample data and evaluated on untouched out-of-sample/walk-forward periods. Do not invent a confidence percentage before calibration.
+
+## Required app features from the original project discussion
+- Real XAUUSD OHLC candles and historical/live feed; no runtime dependence on the TradingView app.
+- Multi-timeframe selector with 1H primary and 4H macro confirmation.
+- On-chart support/resistance, supply/demand, OB, FVG, EQH/EQL, liquidity sweep estimates and confirmed structure labels.
+- Clear BUY/SELL/WAIT dashboard with entry, SL, TP1/TP2/TP3, RR and invalidation reason.
+- Bengali explanations and alert/event history.
+- Main-chart annotations only; clean chart without unnecessary BUY/SELL/BO/SWAP clutter.
+- Stable 1H/4H zones when switching to 3m/5m.
+- Backtest/replay, trade journal, spread/commission/slippage modelling and performance report.
+- Responsive web/PWA first; Android package after feed and engine validation.
+
+## Additional features recommended before live use
+1. Data-source health panel: feed timestamp, candle delay, missing bars, broker symbol and tick-volume warning.
+2. Economic-news/session guard for high-impact USD events and rollover/spread spikes; news must be a risk filter, not a directional oracle.
+3. Zone lifecycle: created → fresh → tested → partially mitigated → invalidated/expired.
+4. Signal lifecycle: forming → confirmed → active → invalidated/expired; prevent duplicate alerts.
+5. Risk controls: max daily loss, max trades/day, cooldown, minimum RR, max spread and no-trade window.
+6. Explainability: every decision shows exact timeframe, candle close time, evidence family and invalidation level.
+7. Auditability: log engine versions, settings, feed, input candle IDs and decision output for reproducibility.
+8. Security: keep provider/API credentials server-side; never embed secrets in Android/web client.
+
+## Build and validation gates
+- Gate A: receive source + license audit.
+- Gate B: implement isolated modules and unit tests.
+- Gate C: compare each module to TradingView-exported golden OHLCV fixtures with identical settings.
+- Gate D: test no repaint/lookahead, realtime vs replay, MTF boundaries and missing data.
+- Gate E: run walk-forward/out-of-sample tests with realistic costs and report drawdown, expectancy, profit factor, trade count and stability.
+- Gate F: connect live feed only after previous gates pass; paper trade before any live use.
+- Gate G: build PWA and Android package after stable web functionality.
+
+## Current status
+All four source families have been reviewed and their candidate roles selected. This document is an architecture/selection blueprint, not a completed integrated indicator. Alpha has an initial Python port; SMC, WSB and AI Channels are not yet fully ported and parity-certified. There is no production live feed, validated trade planner or Android APK yet.
