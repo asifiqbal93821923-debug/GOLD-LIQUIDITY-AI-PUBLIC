@@ -13,7 +13,10 @@
 - [x] Receive complete LuxAlgo AI Channels (Clustering) source; document algorithm, license and caveats.
 - [x] Create unified engine feature-selection and architecture blueprint.
 - [x] Add initial WAIT-first confluence decision gate and API contract.
-- [ ] Port selected features into isolated engine modules; do not merge source code into one monolith.
+- [ ] Port selected features from Alpha, SMC, WSB and AI Channels into isolated engine modules; do not merge source code into one monolith.
+- [x] Add first OHLCV-based institutional liquidity/footprint proxy module and Gold Report AI API contract.
+- [ ] Add licensed live order-book/MBO and trade-print provider adapter; current order-book fields remain unavailable.
+- [ ] Implement true order-level iceberg, aggressor-side CVD, open-interest and large-print feeds.
 - [ ] Build TradingView-exported golden OHLCV fixtures and certify parity per engine.
 - [ ] Fix SMC MTF lookahead/repainting risk, array-removal behavior and unbounded history retention in corrected mode.
 - [ ] Integrate calculated engine outputs with correlated-feature controls and confidence calibration.
@@ -35,6 +38,7 @@
 
 ## Phase 5 — Web and Android delivery
 - [ ] Connect a production market data provider and live candle stream.
+- [x] Add POST /api/analysis/institutional-footprint and POST /api/analysis/gold-report endpoints (proxy/contract only; not live feed).
 - [ ] Responsive Bengali dashboard with trend, structure, liquidity, setup and risk explanations.
 - [ ] PWA installation and offline-safe shell (market data remains online).
 - [ ] Android packaging only after web core, feed and validation are stable.
@@ -47,5 +51,5 @@
 - [x] Four indicator families received and reviewed at source/intake level.
 - [x] Complete SMC source-level audit recorded; not yet ported or parity-certified.
 - [x] Unified architecture and WAIT-first decision concept documented.
-- [ ] No production market feed, certified Pine parity, fully calculated trade planner, or Android package yet.
+- [ ] No production market feed, certified Pine parity, fully calculated trade planner, live MBO/CVD/OI feed, or Android package yet.
 - [ ] CI for the latest combined changes must be checked before claiming a green build.
