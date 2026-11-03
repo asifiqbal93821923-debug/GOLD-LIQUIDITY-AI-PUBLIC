@@ -86,7 +86,7 @@ export default function App(){
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [report,setReport]=useState(null);
-  const [quoteInfo,setQuoteInfo]=useState(null);
+  const [quoteInfo,setQuoteInfo]=useState(null);\n  const [backtest,setBacktest]=useState(null);\n  const [costs,setCosts]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0});
   const [importing,setImporting]=useState(false);
   const fileRef=useRef(null);
 
@@ -136,7 +136,20 @@ export default function App(){
     }catch(e){setMessage('Analysis Error: '+e.message);}
   };
 
-  const decision=report?.decision||{};
+
+  const runBacktest=async()=>{
+    setBacktest(null);setMessage('');
+    try{
+      const res=await fetch('/api/market/candles?timeframe=1h&limit=5000');
+      const d=await res.json();
+      if((d.data||[]).length<50) throw new Error('Backtest-এর জন্য অন্তত ৫০টি ১H Candle Import করুন।');
+      const result=await fetch('/api/backtest/alpha-1h',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({candles:d.data,costs})});
+      const data=await result.json();if(!result.ok)throw new Error(data.detail||'Backtest failed');
+      setBacktest(data);
+    }catch(e){setMessage('Backtest Error: '+e.message);}
+  };
+\n  const decision=report?.decision||{};
   const plan=decision.trade_plan;
   return <main className="shell">
     <header className="topbar"><div className="brand"><div className="brand-mark"><BarChart3 size={21}/></div><div><b>PROJECT INDICATOR APP</b><small>GOLD MARKET INTELLIGENCE</small></div></div>
@@ -172,7 +185,22 @@ export default function App(){
         </div>}
     </section>
 
-    <section className="lower-grid">
+
+    <section className="card report-card">
+      <div className="section-head"><div><span className="eyebrow">HISTORICAL REPLAY · 1H ONLY</span><h2>Alpha Signal Research Backtest</h2></div><button className="action-btn" onClick={runBacktest}>Run Backtest</button></div>
+      <div className="cost-inputs">
+        <label>Point Size<input type="number" min="0.000001" step="0.001" value={costs.point_size} onChange={e=>setCosts(v=>({...v,point_size:Number(e.target.value)}))}/></label>
+        <label>Spread (points)<input type="number" min="0" step="1" value={costs.spread_points} onChange={e=>setCosts(v=>({...v,spread_points:Number(e.target.value)}))}/></label>
+        <label>Slippage (points)<input type="number" min="0" step="1" value={costs.slippage_points} onChange={e=>setCosts(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
+        <label>Commission / side (points)<input type="number" min="0" step="1" value={costs.commission_points_per_side} onChange={e=>setCosts(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
+      </div>
+      {!backtest?<div className="empty-state"><Activity size={22}/><b>১H Alpha Flip Replay</b><span>এটি শুধু Alpha ১H signal-এর research backtest; সম্পূর্ণ 4H/1H/15M Gold strategy নয়। নিজের broker cost assumption বসিয়ে চালাও।</span></div>:
+        <div className="backtest-result">
+          <div className="backtest-grid"><span>Trades <b>{backtest.trade_count}</b></span><span>Win Rate <b>{backtest.win_rate_pct}%</b></span><span>Net PnL <b>{backtest.net_pnl_price}</b></span><span>Average R <b>{backtest.average_R}</b></span><span>Profit Factor <b>{backtest.profit_factor??'—'}</b></span><span>Max Drawdown <b>{backtest.max_drawdown_price}</b></span></div>
+          <small>{backtest.scope_warning}</small>
+        </div>}
+    </section>
+\n    <section className="lower-grid">
       <article className="card"><div className="section-head"><div><span className="eyebrow">ZONE RADAR</span><h2>Supply & Demand</h2></div><Layers3 size={19}/></div>
         <div className="empty-state"><AlertTriangle size={22}/><b>Initial 1H SMC Levels</b><span>1H swing high/low, FVG, OB candidates and EQH/EQL are drawn on the main price chart. Full shaded zones and replay validation remain pending.</span></div></article>
       <article className="card"><div className="section-head"><div><span className="eyebrow">DATA INTEGRITY</span><h2>Feed & Execution</h2></div><ShieldCheck size={19}/></div>
