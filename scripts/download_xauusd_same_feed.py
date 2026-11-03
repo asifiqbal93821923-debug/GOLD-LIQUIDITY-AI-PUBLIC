@@ -113,12 +113,12 @@ def main():
         "npx", "--yes", "dukascopy-node", "-i", "xauusd",
         "-from", args.from_date, "-to", args.to_date,
         "-t", "m1", "-f", "csv", "-p", "bid", "-v",
-        "-o", str(raw_file),
+        "-dir", str(raw_dir), "-fn", raw_file.name,
     ]
     subprocess.run(command, check=True)
     if not raw_file.exists():
         # dukascopy-node versions may write their standard download/ path.
-        candidates = list(Path("download").glob("xauusd-m1-bid-*.csv"))
+        candidates = list(raw_dir.glob("*.csv"))
         if len(candidates) != 1:
             raise FileNotFoundError(f"Expected raw file {raw_file}; found {candidates[:5]}")
         raw_file = candidates[0]
