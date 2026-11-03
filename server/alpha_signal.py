@@ -105,7 +105,7 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
     for i in range(n):
         if atr_pct[i] is None: continue
         x = atr_pct[i]
-        buckets[i] = 0 if p25[i] is not None and x < p25[i] else 1 if p50[i] is not None and x < p50[i] else 2 if p75[i] is not None and x < p75[i] else 3
+        buckets[i] = 0 if (p25[i] is None or x < p25[i]) else 1 if (p50[i] is None or x < p50[i]) else 2 if (p75[i] is None or x < p75[i]) else 3
     vf_names = ["Alpha","Beta","Gamma","Delta"]
     gam_mults, phi_mults, tau_mults = [0.70,1.00,1.40,2.00], [0.70,1.00,1.30,1.80], [0.60,1.00,1.35,1.70]
     band_half, trend, direction, display_dir = [None]*n, [None]*n, [1]*n, [1]*n
@@ -119,6 +119,7 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
     range_pct = _percentile_nearest_rank(ranges, int(p["range_lookback"]), float(p["range_percentile"]))
     hlc3 = [(h[i]+l[i]+c[i])/3 for i in range(n)]
     cloud_ref = _sma(hlc3, 8) # display default; UI can expose cloud length separately
+    stall = slope_flat = vol_flat = range_flat = bps_flat = False
     for i in range(n):
         prev = i-1
         bucket = buckets[i] if buckets[i] is not None else 1
@@ -138,22 +139,30 @@ def analyze_alpha_signal(candles: list[dict[str, Any]], settings: dict[str, Any]
             mid = (h[prev]+l[prev])/2.0
             upper, lower = mid+band_half[i], mid-band_half[i]
             if trend[i-1] is None:
+                # Pine's first non-na trendLine is seeded to upperBand;
+                # close[1] > trendLine[1] is false while [1] is na.
+                direction[i] = -1
                 trend[i] = upper
-            if c[prev] > (trend[i-1] if trend[i-1] is not None else upper):
+            elif c[prev] > trend[i-1]:
                 direction[i] = 1
-                trend[i] = max(lower, trend[i-1] if trend[i-1] is not None else upper)
+                trend[i] = max(lower, trend[i-1])
             else:
                 direction[i] = -1
-                trend[i] = min(upper, trend[i-1] if trend[i-1] is not None else upper)
+                trend[i] = min(upper, trend[i-1])
         elif i > 0:
             trend[i] = trend[i-1]
             direction[i] = direction[i-1]
             band_half[i] = band_half[i-1]
         if i > 2 and atr[i] is not None and trend[i-1] is not None and trend[i-2] is not None:
             stall = p["stall_filter"] and abs(trend[i-1]-trend[i-2]) < atr[i]*float(p["flatness_threshold"])
-            slope_series = [None if x is None else x for x in trend]
-            slopes = _linreg_slope(slope_series[:i], int(p["regression_length"]))
-            slope = slopes[-1] if slopes else None
+            reg_len = int(p["regression_length"])
+            slope_window = trend[max(0, i-reg_len):i]
+            slope = None
+            if len(slope_window) == reg_len and all(x is not None for x in slope_window):
+                xbar = (reg_len - 1) / 2.0
+                denom = sum((x-xbar)**2 for x in range(reg_len))
+                ybar = sum(slope_window) / reg_len
+                slope = sum((x-xbar)*(slope_window[x]-ybar) for x in range(reg_len)) / denom
             slope_flat = p["slope_filter"] and slope is not None and abs(slope)/max(atr[i],1e-12) < float(p["slope_threshold"])
             vol_flat = p["volume_filter"] and v[prev] is not None and vol_sma[prev] is not None and v[prev] <= vol_sma[prev]
             eff_range = range_pct[prev]
