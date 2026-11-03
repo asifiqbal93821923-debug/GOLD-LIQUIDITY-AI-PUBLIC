@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 from pathlib import Path
 from typing import Any
 
 from server.market_data import validate_candles
 from server.multitimeframe_backtest import run_gold_mtf_backtest
+from scripts.research_cost_policy import with_fail_closed_spread_gate
 
 TIMEFRAME_SECONDS = {"4h": 14_400, "1h": 3_600, "15m": 900, "5m": 300}
 REQUIRED_TIMEFRAMES = ("4h", "1h", "15m")
@@ -223,6 +225,7 @@ def optimize_parameters(
     seed: int = 20261103,
     min_trades: int = 10,
 ) -> dict[str, Any]:
+    costs = with_fail_closed_spread_gate(costs)
     split = split_chronologically(frames)
     if split.get("status") != "ok":
         return split
@@ -303,14 +306,19 @@ def main() -> None:
     parser.add_argument("--slippage-points", type=float, required=True)
     parser.add_argument("--commission-points-per-side", type=float, default=0.0)
     parser.add_argument("--point-size", type=float, default=0.01)
+    parser.add_argument("--max-spread-points", type=float, required=True,
+                        help="Defensible observed maximum spread; zero keeps all entries blocked")
     args = parser.parse_args()
     costs = {
         "spread_points": args.spread_points,
         "slippage_points": args.slippage_points,
         "commission_points_per_side": args.commission_points_per_side,
         "point_size": args.point_size,
+        "max_spread_points": args.max_spread_points,
+        "require_spread_limit": True,
     }
-    if args.point_size <= 0 or min(args.spread_points, args.slippage_points, args.commission_points_per_side) < 0:
+    if (not all(math.isfinite(x) for x in costs.values()) or args.point_size <= 0
+            or min(args.spread_points, args.slippage_points, args.commission_points_per_side, args.max_spread_points) < 0):
         parser.error("point size must be positive and costs must be non-negative")
     frames = json.loads(Path(args.input).read_text(encoding="utf-8"))
     report = optimize_parameters(
