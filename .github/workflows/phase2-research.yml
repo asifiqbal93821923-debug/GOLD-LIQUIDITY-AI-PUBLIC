@@ -94,6 +94,16 @@ jobs:
             --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
             --point-size "${{ inputs.point_size }}" \
             --output reports/phase2/walk-forward.json
+      - name: P2.5 base, conservative and adverse execution-cost scenarios
+        run: |
+          python -m scripts.execution_cost_scenarios \
+            --input reports/phase2/xauusd_mtf_ohlcv.json \
+            --spread-points "${{ inputs.spread_points }}" \
+            --slippage-points "${{ inputs.slippage_points }}" \
+            --commission-points-per-side "${{ inputs.commission_points_per_side }}" \
+            --point-size "${{ inputs.point_size }}" \
+            --max-spread-points "${{ inputs.max_spread_points }}" \
+            --output reports/phase2/execution-cost-scenarios.json
       - name: False-breakout, sweep and retest diagnostics
         run: |
           python -m scripts.analyze_price_action_setups \
