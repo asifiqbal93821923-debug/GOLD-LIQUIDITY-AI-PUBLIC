@@ -269,12 +269,6 @@ export default function App(){
   },[]);
 
   useEffect(()=>{refreshPhase3Records(false);},[refreshPhase3Records]);
-  useEffect(()=>{
-    loadPhase5Status();
-    const timer=window.setInterval(loadPhase5Status,20000);
-    return ()=>window.clearInterval(timer);
-  },[loadPhase5Status]);
-
 
   useEffect(()=>{
     const timer=window.setInterval(()=>{
@@ -383,6 +377,12 @@ export default function App(){
     }catch(error){setMessage('Phase 5: '+error.message);}
     finally{setPhase5Busy(false);}
   };
+
+  useEffect(()=>{
+    loadPhase5Status();
+    const timer=window.setInterval(loadPhase5Status,20000);
+    return ()=>window.clearInterval(timer);
+  },[loadPhase5Status]);
 
   const enableNotifications=async()=>{
     if(typeof Notification==='undefined'){setNotificationPermission('unsupported');return;}
