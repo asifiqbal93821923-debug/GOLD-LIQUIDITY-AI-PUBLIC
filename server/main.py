@@ -509,9 +509,15 @@ def paper_forward_status():
     readiness = _paper_forward_readiness(state)
     trades = PHASE5_STORE.list_trades(1000)
     events = PHASE5_STORE.list_events(20)
-    summary = performance_summary(trades, len(PHASE5_STORE.list_events(500)), state.get("pending_signal"))
+    summary = performance_summary(trades, PHASE5_STORE.count_events(), state.get("pending_signal"))
     return {
         "status": "ok", "phase": "PHASE_5",
+        "config": {
+            "enabled": state.get("enabled", False),
+            "max_spread_points": state.get("max_spread_points"),
+            "slippage_points": state.get("slippage_points", 0.0),
+            "commission_points_per_side": state.get("commission_points_per_side", 0.0),
+        },
         "engine": {"enabled": state.get("enabled", False), "mode": "CLOSED_CANDLE_FORWARD_PAPER",
                    "started_at": state.get("started_at"), "stopped_at": state.get("stopped_at"),
                    "last_cycle": state.get("last_cycle")},
