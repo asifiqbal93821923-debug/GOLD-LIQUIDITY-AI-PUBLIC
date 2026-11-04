@@ -122,12 +122,13 @@ Phase 4 code completion is not strategy certification. The report remains NOT_CE
 - [x] Include entered spread, symbol point size, slippage and commission in simulated fills and net PnL.
 - [x] Persist closed-candle decision events and paper trades; provide event/trade APIs and performance summary.
 - [x] Add dashboard controls, readiness blockers, engine status, recent paper trades and performance metrics.
+- [x] Protect all Phase 5 status/config/trade/event endpoints with a separate server-side control token; the dashboard submits it only as a request header.
 - [x] Add Phase 5 unit coverage for config validation, persistence, duplicate events, next-bar entries, missed-zone no-chase, stop-first exits and cost-aware PnL.
 - [x] No broker order endpoints are called; Phase 5 is explicitly paper-only.
 
 ### External start and acceptance gates still pending
 - [ ] Configure durable PostgreSQL or explicitly approved persistent storage on the deployed API. Ephemeral Render SQLite must not be used for the ledger.
-- [ ] Set a private `MARKET_INGEST_TOKEN` and a measured positive `MAX_SPREAD_POINTS` in the server secret/environment settings.
+- [ ] Set a private `MARKET_INGEST_TOKEN`, a separate `PAPER_FORWARD_CONTROL_TOKEN`, and a measured positive `MAX_SPREAD_POINTS` in the server secret/environment settings.
 - [ ] Configure the Phase 5 paper spread cap at or below the server cap, using the target broker's actual symbol point size and measured spread.
 - [ ] Install/compile the MT5 EA in the user's broker terminal and verify its exact XAUUSD symbol name/suffix, server time, candle boundaries and Bid/Ask quote.
 - [ ] Pass the live readiness gate with fresh authenticated 4H/1H/15M closed candles (minimum 50 each) plus a fresh acceptable broker quote.
