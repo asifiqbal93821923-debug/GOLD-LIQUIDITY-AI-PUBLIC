@@ -168,6 +168,11 @@ class PaperForwardStore:
     def fail_event(self, candle_time: int, error: str) -> None:
         self.finish_event(candle_time, "WAIT", "ERROR", str(error), {"error": str(error), "paper_only": True})
 
+    def count_events(self) -> int:
+        with self._connect() as db:
+            row = db.execute("SELECT COUNT(*) AS n FROM paper_forward_events").fetchone()
+        return int(row["n"])
+
     def list_events(self, limit: int = 50) -> list[dict[str, Any]]:
         limit = max(1, min(int(limit), 500))
         with self._connect() as db:
