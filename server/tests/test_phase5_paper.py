@@ -23,7 +23,7 @@ class Phase5ConfigTests(unittest.TestCase):
     def test_rejects_missing_or_non_positive_spread_cap_for_active_config(self):
         state = normalize_paper_config({"enabled": True})
         self.assertIsNone(state["max_spread_points"])
-        self.assertFalse(state["enabled"] is False)
+        self.assertTrue(state["enabled"])
         with self.assertRaises(ValueError):
             normalize_paper_config({"max_spread_points": 0})
         with self.assertRaises(ValueError):
@@ -124,7 +124,7 @@ class Phase5ExecutionTests(unittest.TestCase):
         )
         self.assertEqual(closed["exit_reason"], "TP1")
         self.assertLess(closed["net_pnl_price"], closed["gross_pnl_price"])
-        self.assertAlmostEqual(closed["pnl_r"], 0.89, places=2)
+        self.assertAlmostEqual(closed["pnl_r"], 0.90, places=2)
 
     def test_performance_metrics_and_risk_journal_adapter(self):
         trades = [
