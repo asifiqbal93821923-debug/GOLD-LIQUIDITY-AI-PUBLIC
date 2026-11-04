@@ -208,6 +208,7 @@ export default function App(){
   const [phase4Costs,setPhase4Costs]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0,max_spread_points:0});
   const [phase5Status,setPhase5Status]=useState(null);
   const [phase5Settings,setPhase5Settings]=useState({enabled:false,max_spread_points:'',slippage_points:0,commission_points_per_side:0});
+  const [phase5ControlToken,setPhase5ControlToken]=useState('');
   const [phase5Busy,setPhase5Busy]=useState(false);
   const phase5Loaded=useRef(false);
   const seenSignalIds=useRef(new Set());
@@ -353,7 +354,7 @@ export default function App(){
 
   const loadPhase5Status=useCallback(async()=>{
     try{
-      const res=await fetch(apiUrl('/api/paper-forward/status'));
+      const res=await fetch(apiUrl('/api/paper-forward/status'),{headers:{'X-Paper-Control-Token':phase5ControlToken.trim()}});
       const data=await res.json();
       if(!res.ok)throw new Error(data.detail||'Phase 5 status unavailable');
       setPhase5Status(data);
@@ -362,13 +363,13 @@ export default function App(){
         phase5Loaded.current=true;
       }
     }catch(error){setPhase5Status(old=>old||{status:'offline',error:error.message});}
-  },[]);
+  },[phase5ControlToken]);
 
   const savePhase5Config=async(enabled)=>{
     setPhase5Busy(true);
     try{
       const payload={...phase5Settings,enabled,max_spread_points:phase5Settings.max_spread_points===''?null:Number(phase5Settings.max_spread_points)};
-      const res=await fetch(apiUrl('/api/paper-forward/config'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const res=await fetch(apiUrl('/api/paper-forward/config'),{method:'PUT',headers:{'Content-Type':'application/json','X-Paper-Control-Token':phase5ControlToken.trim()},body:JSON.stringify(payload)});
       const data=await res.json();
       if(!res.ok)throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||'Phase 5 configuration failed'));
       setPhase5Settings({...data.config});
@@ -379,10 +380,11 @@ export default function App(){
   };
 
   useEffect(()=>{
+    if(!phase5ControlToken.trim())return;
     loadPhase5Status();
     const timer=window.setInterval(loadPhase5Status,20000);
     return ()=>window.clearInterval(timer);
-  },[loadPhase5Status]);
+  },[phase5ControlToken,loadPhase5Status]);
 
   const enableNotifications=async()=>{
     if(typeof Notification==='undefined'){setNotificationPermission('unsupported');return;}
@@ -504,6 +506,7 @@ export default function App(){
         {phase5Status?.readiness?.ready&&<small>Storage: {phase5Status.readiness.checks?.persistent_storage?.backend||'—'} · Server spread cap: {phase5Status.readiness.checks?.server_spread_cap?.max_spread_points??'—'} pts</small>}
       </div>
       <div className="phase5-form">
+        <label>Private control token<input type="password" autoComplete="off" value={phase5ControlToken} onChange={e=>setPhase5ControlToken(e.target.value)} placeholder="Server PAPER_FORWARD_CONTROL_TOKEN"/></label>
         <label>Paper max spread (points)<input type="number" min="0.1" step="0.1" value={phase5Settings.max_spread_points??''} onChange={e=>setPhase5Settings(v=>({...v,max_spread_points:e.target.value===''?'':Number(e.target.value)}))} placeholder="Measured broker cap"/></label>
         <label>Slippage (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.slippage_points??0} onChange={e=>setPhase5Settings(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
         <label>Commission (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.commission_points_per_side??0} onChange={e=>setPhase5Settings(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
