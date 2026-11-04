@@ -1,6 +1,6 @@
 # Development Roadmap — XAUUSD Gold Report AI
 
-Last reconciled: 2026-11-03
+Last reconciled: 2026-11-04
 
 ## A. Market data and MT5 connectivity
 
@@ -107,3 +107,31 @@ Phase 3 is an analysis, risk-control and recordkeeping layer. It does not place,
 - [ ] Verify GitHub Pages and Render deployment after CI/deploy workflows complete.
 
 Phase 4 code completion is not strategy certification. The report remains NOT_CERTIFIED until data provenance, TradingView parity, broker costs, live MT5 and forward paper evidence are independently verified.
+
+
+## H. Phase 5 — Continuous forward paper trading (v0.7.0)
+
+### Implemented in code
+- [x] Persistent Phase 5 engine configuration and paper-event/trade tables using the configured SQLite/PostgreSQL database.
+- [x] Engine disabled by default; explicit start is blocked unless the data, quote, spread and storage readiness gates pass.
+- [x] Trigger the forward cycle only after the authenticated MT5 Bid/Ask quote bridge receives an update (the EA pushes candle histories before the quote).
+- [x] Process only a newly closed 1H candle, with durable unique-candle claim/deduplication.
+- [x] Build each decision from 4H/1H/15M and optional 5M candles that are fully closed by the 1H decision close; exclude later/forming candles.
+- [x] Risk-approved directional decision is queued for the next 1H bar; simulated entry is allowed only at that next bar's open and only inside the original entry zone (no chasing).
+- [x] Manage open paper trades using closed 1H OHLC; conservative stop-first rule resolves stop/TP1 ambiguity.
+- [x] Include entered spread, symbol point size, slippage and commission in simulated fills and net PnL.
+- [x] Persist closed-candle decision events and paper trades; provide event/trade APIs and performance summary.
+- [x] Add dashboard controls, readiness blockers, engine status, recent paper trades and performance metrics.
+- [x] Add Phase 5 unit coverage for config validation, persistence, duplicate events, next-bar entries, missed-zone no-chase, stop-first exits and cost-aware PnL.
+- [x] No broker order endpoints are called; Phase 5 is explicitly paper-only.
+
+### External start and acceptance gates still pending
+- [ ] Configure durable PostgreSQL or explicitly approved persistent storage on the deployed API. Ephemeral Render SQLite must not be used for the ledger.
+- [ ] Set a private `MARKET_INGEST_TOKEN` and a measured positive `MAX_SPREAD_POINTS` in the server secret/environment settings.
+- [ ] Configure the Phase 5 paper spread cap at or below the server cap, using the target broker's actual symbol point size and measured spread.
+- [ ] Install/compile the MT5 EA in the user's broker terminal and verify its exact XAUUSD symbol name/suffix, server time, candle boundaries and Bid/Ask quote.
+- [ ] Pass the live readiness gate with fresh authenticated 4H/1H/15M closed candles (minimum 50 each) plus a fresh acceptable broker quote.
+- [ ] Start the engine and accumulate a predeclared forward observation period over future market sessions; inspect missed/duplicate/invalidated signals and ledger integrity.
+- [ ] Review sample size, net R, costs, drawdown, risk-gate behaviour and feed continuity before Phase 5 acceptance.
+
+Phase 5 code completion does not mean forward observation has started or that the strategy is profitable. This version simulates full-position exits at Stop or TP1 using closed 1H OHLC; it is not a tick-by-tick fill simulator and does not model partial exits or queue position. No broker orders are sent.
