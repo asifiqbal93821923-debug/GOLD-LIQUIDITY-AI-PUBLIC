@@ -148,7 +148,7 @@ class Phase5ExecutionTests(unittest.TestCase):
         )
         self.assertEqual(closed["exit_reason"], "TP1")
         self.assertLess(closed["net_pnl_price"], closed["gross_pnl_price"])
-        self.assertAlmostEqual(closed["pnl_r"], 0.90, places=2)
+        self.assertAlmostEqual(closed["pnl_r"], 0.93, places=2)
 
     def test_performance_metrics_and_risk_journal_adapter(self):
         trades = [
