@@ -499,6 +499,8 @@ export default function App(){
         <div><small>WIN RATE</small><b>{phase5Status?.summary?.win_rate_pct==null?'—':phase5Status.summary.win_rate_pct+'%'}</b></div>
         <div><small>NET PNL · PRICE</small><b>{phase5Status?.summary?.net_pnl_price==null?'—':Number(phase5Status.summary.net_pnl_price).toFixed(2)}</b></div>
         <div><small>AVERAGE R</small><b>{phase5Status?.summary?.average_R==null?'—':Number(phase5Status.summary.average_R).toFixed(2)+'R'}</b></div>
+        <div><small>PROFIT FACTOR · R</small><b>{phase5Status?.summary?.profit_factor_R==null?'—':phase5Status.summary.profit_factor_R}</b></div>
+        <div><small>MAX DRAWDOWN · R</small><b>{phase5Status?.summary?.max_drawdown_R==null?'—':Number(phase5Status.summary.max_drawdown_R).toFixed(2)+'R'}</b></div>
       </div>
       <div className={'phase5-readiness '+(phase5Status?.readiness?.ready?'ready':'blocked')}>
         <b>{phase5Status?.readiness?.ready?'Feed / storage readiness passed':'Start gate: requirements not yet met'}</b>
@@ -512,11 +514,11 @@ export default function App(){
         <label>Commission (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.commission_points_per_side??0} onChange={e=>setPhase5Settings(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
       </div>
       <div className="phase5-actions">
-        <button className="action-btn secondary" onClick={()=>savePhase5Config(false)} disabled={phase5Busy}>Save paper settings</button>
+        <button className="action-btn secondary" onClick={()=>savePhase5Config(false)} disabled={phase5Busy||!phase5ControlToken.trim()}>Save paper settings</button>
         {!phase5Status?.engine?.enabled?
-          <button className="action-btn" onClick={()=>savePhase5Config(true)} disabled={phase5Busy||!phase5Status?.readiness?.ready}>Start forward paper</button>:
-          <button className="action-btn danger" onClick={()=>savePhase5Config(false)} disabled={phase5Busy}>Pause new entries</button>}
-        <button className="action-btn secondary" onClick={loadPhase5Status} disabled={phase5Busy}><RefreshCw size={13}/> Refresh status</button>
+          <button className="action-btn" onClick={()=>savePhase5Config(true)} disabled={phase5Busy||!phase5ControlToken.trim()||!phase5Status?.readiness?.ready}>Start forward paper</button>:
+          <button className="action-btn danger" onClick={()=>savePhase5Config(false)} disabled={phase5Busy||!phase5ControlToken.trim()}>Pause new entries</button>}
+        <button className="action-btn secondary" onClick={loadPhase5Status} disabled={phase5Busy||!phase5ControlToken.trim()}><RefreshCw size={13}/> Refresh status</button>
       </div>
       <small className="phase5-note">Paused অবস্থায় নতুন signal/entry নেওয়া হয় না; existing paper position MT5 feed fresh থাকলে exit rules দিয়ে manage হবে। Feed বন্ধ বা stale হলে position management-ও pause হবে। Live observation period এখনো শুরু হয়েছে বলে ধরা হবে না—engine চালু হওয়ার পরে নতুন future 1H candle collect হতে হবে।</small>
       <div className="phase5-recent">
@@ -526,7 +528,7 @@ export default function App(){
           <span>Entry {Number(trade.entry_price).toFixed(2)} · SL {Number(trade.stop_loss).toFixed(2)} · TP1 {Number(trade.tp1).toFixed(2)}</span>
           <small>{new Date(Number(trade.entry_time)*1000).toLocaleString()} · {trade.status==='CLOSED'?'Exit '+Number(trade.exit_price).toFixed(2)+' · '+trade.exit_reason+' · '+Number(trade.pnl_r).toFixed(2)+'R':'Open · awaiting stop / target'}</small>
         </div>)}
-        {!(phase5Status?.recent_trades||[]).length&&<div className="phase5-empty">এখনও কোনো paper position নেই। Live MT5 feed ও readiness gate পূরণ হলে future 1H candle-এ event processing শুরু হবে।</div>}
+        {!(phase5Status?.recent_trades||[]).length&&<div className="phase5-empty">{phase5Status?.summary?'এখনও কোনো paper position নেই। Live MT5 feed ও readiness gate পূরণ হলে future 1H candle-এ event processing শুরু হবে।':'Ledger দেখতে উপরের private control token দিন।'}</div>}
       </div>
       {phase5Status?.engine?.last_cycle&&<div className="phase5-last">Last cycle: {phase5Status.engine.last_cycle.status} · {phase5Status.engine.last_cycle.checked_at||'—'} · {(phase5Status.engine.last_cycle.actions||[]).map(x=>x.action).join(' / ')}</div>}
     </section>
