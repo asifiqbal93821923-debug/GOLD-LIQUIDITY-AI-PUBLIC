@@ -280,6 +280,16 @@ def journal_view_from_paper_trades(trades: list[dict[str, Any]], contract_size: 
     return output
 
 
+def pending_matches_next_candle(pending: dict[str, Any], candle: dict[str, Any]) -> bool:
+    """Allow pending signals only on the immediate next hourly candle."""
+    try:
+        source_time = int(pending.get("source_candle_time"))
+        current_time = int(candle.get("time"))
+    except (TypeError, ValueError):
+        return False
+    return current_time == source_time + 3600
+
+
 def advance_open_trade(
     trade: dict[str, Any],
     candle: dict[str, Any],
