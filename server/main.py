@@ -19,7 +19,7 @@ try:
     from .multitimeframe_backtest import run_gold_mtf_backtest
     from .data_audit import audit_candle_history
     from .phase4_validation import run_phase4_validation
-    from .phase5_paper import (PaperForwardStore, normalize_paper_config, journal_view_from_paper_trades, advance_open_trade, open_from_pending, performance_summary)
+    from .phase5_paper import (PaperForwardStore, normalize_paper_config, journal_view_from_paper_trades, advance_open_trade, open_from_pending, pending_matches_next_candle, performance_summary)
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
@@ -322,15 +322,30 @@ def _run_paper_forward_cycle() -> dict:
             elif active_now:
                 actions.append({"action": "PENDING_CANCELLED", "reason": "OPEN_POSITION_PRESENT"})
                 state["pending_signal"] = None
+            elif not pending_matches_next_candle(pending, candle):
+                actions.append({"action": "PENDING_EXPIRED", "reason": "IMMEDIATE_NEXT_1H_BAR_MISSED"})
+                state["pending_signal"] = None
             else:
                 trade, result = open_from_pending(
                     pending, candle, spread_points=costs["spread_points"], point_size=point_size,
                     slippage_points=costs["slippage_points"],
                     commission_points_per_side=costs["commission_points_per_side"])
                 if trade:
-                    PHASE5_STORE.save_trade(trade)
                     actions.append({"action": "TRADE_OPENED", "trade_id": trade["id"],
                                     "entry_price": trade["entry_price"], "side": trade["side"]})
+                    # Evaluate the entry candle itself after the open fill; closed-bar
+                    # extremes are resolved conservatively with stop-first handling.
+                    closed_on_entry_bar = advance_open_trade(
+                        trade, candle, spread_points=costs["spread_points"], point_size=point_size,
+                        slippage_points=costs["slippage_points"],
+                        commission_points_per_side=costs["commission_points_per_side"])
+                    PHASE5_STORE.save_trade(closed_on_entry_bar or trade)
+                    if closed_on_entry_bar:
+                        actions.append({"action": "TRADE_CLOSED_ON_ENTRY_BAR",
+                                        "trade_id": trade["id"],
+                                        "reason": closed_on_entry_bar["exit_reason"],
+                                        "net_pnl_price": closed_on_entry_bar["net_pnl_price"],
+                                        "pnl_R": closed_on_entry_bar["pnl_r"]})
                 else:
                     actions.append({"action": "PENDING_EXPIRED", "reason": result})
                 state["pending_signal"] = None
