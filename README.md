@@ -10,7 +10,7 @@ Independent XAUUSD (Gold) market-analysis application for **Web + Android**. Tra
 - BUY/SELL trade plans with entry zone, invalidation/stop loss, TP1/TP2/TP3 and confirmation/WAIT status.
 - Pine Script source-code analysis and logic porting, validated against reference outputs and historical replay.
 
-## Current status — Foundation 0.6.0 + 1H-primary analysis + risk controls + alerts + Phase 4 validation
+## Current status — Foundation 0.7.0 + 1H-primary analysis + risk controls + alerts + Phase 4 validation + Phase 5 forward paper trading
 - React + Vite responsive frontend and Lightweight Charts surface.
 - FastAPI backend with health/configuration, SQLite fallback and Neon/PostgreSQL historical-candle persistence support, plus analysis endpoints.
 - Initial Alpha Signal Engine Pro Python port and API (parity pending).
@@ -79,3 +79,23 @@ The current dashboard removes the Alpha Signal Research Backtest and Trade Journ
 The Phase 4 validation workspace runs a server-side data preflight, 4H/1H/15M/optional-5M causal replay, base/conservative/adverse execution-cost scenarios, and chronological walk-forward folds with a sealed final holdout. Each OOS window receives up to 50 prior candles per timeframe for indicator warm-up; those context candles are not counted as OOS trades.
 
 Provider/timezone/same-feed inputs are user attestations, not independent data authentication. Pine parity requires a matching TradingView confirmed-bar export plus exact script/settings metadata. Broker costs require timestamped broker evidence; live MT5 and persistent paper-forward execution must be verified separately. A completed calculation is not a profitability claim, and the app does not place broker orders.
+
+
+## Phase 5 — Continuous MT5 forward paper trading (v0.7.0)
+
+Phase 5 adds an **opt-in, paper-only** engine driven by authenticated MT5 bridge updates. When the MT5 EA posts its current Bid/Ask quote after sending candle histories, the API checks readiness and processes a newly closed 1H candle exactly once. The Gold Report decision is computed only from candles closed by that 1H decision time. A risk-approved BUY/SELL plan is queued for the next 1H bar and is simulated at that bar's open only when the open is inside the original entry zone; otherwise the signal expires without chasing.
+
+Open paper positions are evaluated on subsequent closed 1H candles. If stop and TP1 are both inside the same OHLC bar, stop-first is used conservatively. The current forward-paper model closes the full simulated position at stop or TP1; it does not claim partial fills or reconstruct tick-level intrabar paths. Spread, point size, slippage and commission are included in simulated prices/PnL. Events, configuration and trade records are persisted in the configured SQLite/PostgreSQL database.
+
+### Phase 5 API
+- `GET /api/paper-forward/status` — engine state, readiness blockers and performance summary.
+- `PUT /api/paper-forward/config` — configure measured paper spread cap/costs; start or pause the engine.
+- `GET /api/paper-forward/trades?limit=200` — paper positions.
+- `GET /api/paper-forward/events?limit=100` — closed-candle decision/audit events.
+
+### Start requirements
+The engine is disabled by default. Starting is rejected until the server has a private `MARKET_INGEST_TOKEN`, a positive broker-measured `MAX_SPREAD_POINTS`, a durable store (PostgreSQL or an explicitly approved persistent SQLite disk), at least 50 fresh authenticated MT5 closed candles for each of 4H/1H/15M, and a fresh Bid/Ask tick inside both spread limits. The Phase 5 cap may be stricter than, but never wider than, the server cap. Enter slippage and commission in points per side and use evidence from the intended broker/account.
+
+For Render deployments, use PostgreSQL (for example the configured `DATABASE_URL`) or another explicitly persistent storage mount. The Render ephemeral SQLite filesystem is not accepted as a durable Phase 5 ledger. Set environment variables only in the hosting dashboard/secret manager; never commit bridge tokens.
+
+**Important boundaries:** Phase 5 does not place, modify or close broker orders. It does not create historical/live data from thin air. A passing code test is not evidence that a real forward observation period has started. Start and verify the feed in the user's MT5 terminal, then allow future market sessions to accumulate before judging performance. The paper model's fills are OHLC-based estimates and are not guaranteed executable broker fills or a profitability claim.

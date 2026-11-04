@@ -19,6 +19,7 @@ try:
     from .multitimeframe_backtest import run_gold_mtf_backtest
     from .data_audit import audit_candle_history
     from .phase4_validation import run_phase4_validation
+    from .phase5_paper import (PaperForwardStore, normalize_paper_config, journal_view_from_paper_trades, advance_open_trade, open_from_pending, pending_matches_next_candle, performance_summary)
 except ImportError:
     from alpha_signal import analyze_alpha_signal
     from unified_decision import analyze_unified_decision
@@ -31,8 +32,9 @@ except ImportError:
     from multitimeframe_backtest import run_gold_mtf_backtest
     from data_audit import audit_candle_history
     from phase4_validation import run_phase4_validation
+    from phase5_paper import (PaperForwardStore, normalize_paper_config, journal_view_from_paper_trades, advance_open_trade, open_from_pending, performance_summary)
 
-app = FastAPI(title="Project Indicator App API", version="0.6.0")
+app = FastAPI(title="Project Indicator App API", version="0.7.0")
 app.add_middleware(CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,https://asifiqbal93821923-debug.github.io").split(",") if origin.strip()],
     allow_credentials=True, allow_methods=["GET", "POST", "PUT", "OPTIONS"], allow_headers=["*"])
@@ -40,6 +42,7 @@ app.add_middleware(CORSMiddleware,
 DATABASE_PATH = os.getenv("DATABASE_URL") or os.getenv("CANDLE_DB_PATH", "data/market_candles.sqlite3")
 STORE = CandleStore(DATABASE_PATH)
 PHASE3_STORE = Phase3Store(DATABASE_PATH)
+PHASE5_STORE = PaperForwardStore(DATABASE_PATH)
 TIMEFRAMES = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1D"}
 
 TF_SECONDS={"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"4h":14400,"1D":86400}
@@ -177,6 +180,232 @@ class JournalCloseRequest(BaseModel):
     exit_price: float = Field(gt=0)
     pnl_money: float
 
+class Phase5PaperConfigRequest(BaseModel):
+    enabled: bool
+    max_spread_points: float | None = None
+    slippage_points: float = Field(default=0, ge=0, le=100000)
+    commission_points_per_side: float = Field(default=0, ge=0, le=100000)
+
+
+def _paper_forward_readiness(state: dict | None = None, now: datetime | None = None) -> dict:
+    state = state or PHASE5_STORE.get_state()
+    now = now or datetime.now(timezone.utc)
+    checks = {}
+    blockers = []
+    persistent = (
+        STORE.backend == "postgresql"
+        or os.getenv("PAPER_FORWARD_ALLOW_SQLITE", "").strip().lower() == "true"
+        or not os.getenv("RENDER_SERVICE_ID")
+    )
+    checks["persistent_storage"] = {"ok": persistent, "backend": STORE.backend}
+    if not persistent:
+        blockers.append("PERSISTENT_DATABASE_REQUIRED: configure DATABASE_URL (PostgreSQL) or explicitly approve a persistent SQLite disk.")
+    token_ok = bool(os.getenv("MARKET_INGEST_TOKEN"))
+    control_token_ok = bool(os.getenv("PAPER_FORWARD_CONTROL_TOKEN"))
+    checks["control_token"] = {"ok": control_token_ok}
+    if not control_token_ok:
+        blockers.append("PAPER_FORWARD_CONTROL_TOKEN is not configured; Phase 5 dashboard access is disabled.")
+    checks["mt5_bridge_token"] = {"ok": token_ok}
+    if not token_ok:
+        blockers.append("MT5 bridge token is not configured on the server.")
+    system_cap = _configured_max_spread_points()
+    checks["server_spread_cap"] = {"ok": system_cap > 0, "max_spread_points": system_cap or None}
+    if system_cap <= 0:
+        blockers.append("MAX_SPREAD_POINTS must be set to a measured positive broker spread cap.")
+    paper_cap = state.get("max_spread_points")
+    checks["paper_spread_cap"] = {"ok": isinstance(paper_cap, (int, float)) and not isinstance(paper_cap, bool) and math.isfinite(float(paper_cap)) and float(paper_cap) > 0,
+        "max_spread_points": paper_cap}
+    if not checks["paper_spread_cap"]["ok"]:
+        blockers.append("Configure a positive Phase 5 maximum spread cap before starting.")
+    elif system_cap > 0 and float(paper_cap) > system_cap:
+        blockers.append("Phase 5 spread cap cannot be wider than the server MAX_SPREAD_POINTS gate.")
+    frame_checks = {}
+    for tf in ("4h", "1h", "15m"):
+        state_tf = _ingest_status(tf, now)
+        count = STORE.count("XAUUSD", tf)
+        ok = bool(state_tf.get("fresh")) and count >= 50
+        frame_checks[tf] = {**state_tf, "closed_candle_count": count, "ok": ok}
+        if not state_tf.get("fresh"):
+            blockers.append(tf.upper() + " authenticated MT5 feed is not fresh.")
+        if count < 50:
+            blockers.append(tf.upper() + " requires at least 50 stored candles.")
+    checks["timeframes"] = frame_checks
+    quote = _quote_status(now)
+    quote_ok = bool(quote.get("fresh") and quote.get("acceptable"))
+    if quote_ok and checks["paper_spread_cap"]["ok"]:
+        quote_ok = float(quote.get("spread_points", math.inf)) <= float(paper_cap)
+    checks["broker_quote"] = {**quote, "ok": quote_ok}
+    if not quote_ok:
+        blockers.append("Fresh MT5 Bid/Ask quote is missing, stale, above spread cap, or server spread gate is closed.")
+    return {"ready": not blockers, "checks": checks, "blockers": blockers,
+            "checked_at": now.isoformat(), "paper_only": True}
+
+
+def _paper_frames_asof(decision_time: int) -> dict[str, list[dict]]:
+    seconds = {"4h": 14400, "1h": 3600, "15m": 900, "5m": 300}
+    frames = {}
+    for tf, period in seconds.items():
+        rows = STORE.read("XAUUSD", tf, 1500)
+        closed_by_decision = [row for row in rows if int(row["time"]) + period <= decision_time]
+        if tf == "5m" and len(closed_by_decision) < 50:
+            continue
+        frames[tf] = closed_by_decision
+    return frames
+
+
+def _run_paper_forward_cycle() -> dict:
+    """Process one new closed 1H candle after authenticated MT5 quote ingestion."""
+    state = PHASE5_STORE.get_state()
+    existing_trades = PHASE5_STORE.list_trades(1000)
+    has_open = any(x.get("status") == "OPEN" for x in existing_trades)
+    if not state.get("enabled") and not has_open and not state.get("pending_signal"):
+        return {"status": "disabled", "processed": False}
+    now = datetime.now(timezone.utc)
+    readiness = _paper_forward_readiness(state, now)
+    # An existing paper position is managed only when the feed and quote are safe.
+    if not readiness["ready"]:
+        state["last_cycle"] = {"status": "blocked", "blockers": readiness["blockers"], "checked_at": now.isoformat()}
+        PHASE5_STORE.save_state(state)
+        return {"status": "blocked", "processed": False, "blockers": readiness["blockers"]}
+    latest = STORE.read("XAUUSD", "1h", 1)
+    if not latest:
+        return {"status": "no_1h_candle", "processed": False}
+    candle = latest[-1]
+    candle_time = int(candle["time"])
+    decision_time = candle_time + TF_SECONDS["1h"]
+    now_epoch = int(now.timestamp())
+    if decision_time > now_epoch + 5 or now_epoch - decision_time > TF_SECONDS["1h"] + 180:
+        return {"status": "1h_candle_not_fresh_or_not_closed", "processed": False}
+    previous = state.get("last_processed_candle_time")
+    if previous is not None and candle_time <= int(previous):
+        return {"status": "duplicate_candle", "processed": False, "candle_time": candle_time}
+    if not PHASE5_STORE.claim_event(candle_time, {"trigger": "authenticated_mt5_quote_bridge", "paper_only": True}):
+        return {"status": "duplicate_event", "processed": False, "candle_time": candle_time}
+    try:
+        frames = _paper_frames_asof(decision_time)
+        if any(len(frames.get(tf) or []) < 50 for tf in ("4h", "1h", "15m")):
+            raise ValueError("At least 50 fully closed 4H, 1H and 15M candles must be available as of the 1H decision close.")
+        quote_record = STORE.latest_quote("XAUUSD") or {}
+        quote_state = _quote_status(now)
+        spread_points = float(quote_state.get("spread_points", 0))
+        point_size = float(quote_record.get("point", 0))
+        if point_size <= 0 or not math.isfinite(point_size):
+            raise ValueError("The MT5 quote point size is invalid.")
+        paper_cap = float(state["max_spread_points"])
+        if spread_points > paper_cap:
+            raise ValueError("Current spread exceeds the Phase 5 paper spread cap.")
+        costs = {
+            "spread_points": spread_points,
+            "point_size": point_size,
+            "slippage_points": float(state.get("slippage_points", 0)),
+            "commission_points_per_side": float(state.get("commission_points_per_side", 0)),
+        }
+        actions = []
+        trades = PHASE5_STORE.list_trades(1000)
+        # Manage existing paper positions using only the newly closed H1 OHLC bar.
+        for trade in trades:
+            if trade.get("status") != "OPEN":
+                continue
+            closed = advance_open_trade(
+                trade, candle, spread_points=costs["spread_points"], point_size=point_size,
+                slippage_points=costs["slippage_points"],
+                commission_points_per_side=costs["commission_points_per_side"])
+            if closed:
+                PHASE5_STORE.save_trade(closed)
+                actions.append({"action": "TRADE_CLOSED", "trade_id": closed["id"],
+                                "reason": closed["exit_reason"], "net_pnl_price": closed["net_pnl_price"],
+                                "pnl_R": closed["pnl_r"]})
+        trades = PHASE5_STORE.list_trades(1000)
+        state = PHASE5_STORE.get_state()
+        pending = state.get("pending_signal")
+        active_now = any(x.get("status") == "OPEN" for x in trades)
+        if pending:
+            if not state.get("enabled"):
+                actions.append({"action": "PENDING_CANCELLED", "reason": "ENGINE_PAUSED"})
+                state["pending_signal"] = None
+            elif active_now:
+                actions.append({"action": "PENDING_CANCELLED", "reason": "OPEN_POSITION_PRESENT"})
+                state["pending_signal"] = None
+            elif not pending_matches_next_candle(pending, candle):
+                actions.append({"action": "PENDING_EXPIRED", "reason": "IMMEDIATE_NEXT_1H_BAR_MISSED"})
+                state["pending_signal"] = None
+            else:
+                trade, result = open_from_pending(
+                    pending, candle, spread_points=costs["spread_points"], point_size=point_size,
+                    slippage_points=costs["slippage_points"],
+                    commission_points_per_side=costs["commission_points_per_side"])
+                if trade:
+                    actions.append({"action": "TRADE_OPENED", "trade_id": trade["id"],
+                                    "entry_price": trade["entry_price"], "side": trade["side"]})
+                    # Evaluate the entry candle itself after the open fill; closed-bar
+                    # extremes are resolved conservatively with stop-first handling.
+                    closed_on_entry_bar = advance_open_trade(
+                        trade, candle, spread_points=costs["spread_points"], point_size=point_size,
+                        slippage_points=costs["slippage_points"],
+                        commission_points_per_side=costs["commission_points_per_side"])
+                    PHASE5_STORE.save_trade(closed_on_entry_bar or trade)
+                    if closed_on_entry_bar:
+                        actions.append({"action": "TRADE_CLOSED_ON_ENTRY_BAR",
+                                        "trade_id": trade["id"],
+                                        "reason": closed_on_entry_bar["exit_reason"],
+                                        "net_pnl_price": closed_on_entry_bar["net_pnl_price"],
+                                        "pnl_R": closed_on_entry_bar["pnl_r"]})
+                else:
+                    actions.append({"action": "PENDING_EXPIRED", "reason": result})
+                state["pending_signal"] = None
+        report = None
+        decision = {"decision": "WAIT", "reason_codes": ["ENGINE_PAUSED"], "trade_plan": {}}
+        risk = {"status": "not_evaluated", "approved_for_alert": False, "blocking_reasons": ["ENGINE_PAUSED"]}
+        if state.get("enabled"):
+            report = build_gold_report(frames, data_fresh=True, spread_acceptable=True)
+            decision = report.get("decision") or decision
+            risk_settings = PHASE3_STORE.get_risk_settings(DEFAULT_RISK_SETTINGS)
+            trades = PHASE5_STORE.list_trades(1000)
+            risk_journal = journal_view_from_paper_trades(trades, risk_settings.get("contract_size"))
+            paper_quote = {**quote_state, "acceptable": True}
+            risk = evaluate_risk(decision, paper_quote, risk_settings, risk_journal, now)
+            side = str(decision.get("decision", "WAIT")).upper()
+            plan = decision.get("trade_plan") or {}
+            if side in {"BUY", "SELL"} and plan.get("valid") is not False and risk.get("approved_for_alert"):
+                if not any(x.get("status") == "OPEN" for x in trades) and not state.get("pending_signal"):
+                    state["pending_signal"] = {
+                        "side": side, "signal_time": decision_time,
+                        "trade_plan": plan, "position_size": risk.get("position_size"),
+                        "reason_codes": decision.get("reason_codes", []),
+                        "source_candle_time": candle_time, "paper_only": True,
+                    }
+                    actions.append({"action": "SIGNAL_QUEUED_FOR_NEXT_1H_OPEN", "side": side})
+                else:
+                    actions.append({"action": "SIGNAL_NOT_QUEUED", "reason": "POSITION_OR_PENDING_EXISTS"})
+            elif side in {"BUY", "SELL"}:
+                actions.append({"action": "SIGNAL_BLOCKED", "reasons": risk.get("blocking_reasons") or [plan.get("reason", "INVALID_PLAN")]})
+            else:
+                actions.append({"action": "WAIT", "reasons": decision.get("reason_codes", [])})
+        state["last_processed_candle_time"] = candle_time
+        state["last_cycle"] = {
+            "status": "processed", "candle_time": candle_time, "decision_time": decision_time,
+            "decision": decision.get("decision", "WAIT"),
+            "risk_status": risk.get("status"), "actions": actions,
+            "spread_points": spread_points, "checked_at": now.isoformat(),
+            "paper_only": True, "broker_orders_sent": False,
+        }
+        PHASE5_STORE.save_state(state)
+        payload = {"decision": decision, "risk_management": risk, "actions": actions,
+                   "data_as_of": decision_time, "costs": costs, "paper_only": True,
+                   "broker_orders_sent": False}
+        PHASE5_STORE.finish_event(candle_time, decision.get("decision", "WAIT"),
+                                  "PROCESSED", "", payload)
+        return {"status": "processed", "processed": True, "candle_time": candle_time, "actions": actions}
+    except Exception as exc:
+        PHASE5_STORE.fail_event(candle_time, str(exc))
+        state = PHASE5_STORE.get_state()
+        state["last_processed_candle_time"] = candle_time
+        state["last_cycle"] = {"status": "error", "candle_time": candle_time,
+                               "reason": str(exc), "checked_at": now.isoformat()}
+        PHASE5_STORE.save_state(state)
+        return {"status": "error", "processed": True, "candle_time": candle_time, "reason": str(exc)}
+
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def root_health():
     # Root health response for generic platform probes and browser checks.
@@ -184,7 +413,7 @@ def root_health():
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
-    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.6.0"}
+    return {"status":"ok","app":"PROJECT INDICATOR APP","version":"0.7.0"}
 
 @app.get("/api/config/status")
 def config_status():
@@ -273,7 +502,9 @@ def mt5_quote_bridge(payload: QuoteBridgeRequest, x_bridge_token: str | None = H
     try: quote_time=to_epoch_seconds(payload.time)
     except ValueError as exc: raise HTTPException(422,str(exc))
     STORE.upsert_quote("XAUUSD",payload.bid,payload.ask,payload.point,quote_time,"mt5_bridge")
-    return {"status":"ok","source":"mt5_bridge","spread_points":(payload.ask-payload.bid)/payload.point}
+    paper_cycle = _run_paper_forward_cycle()
+    return {"status":"ok","source":"mt5_bridge","spread_points":(payload.ask-payload.bid)/payload.point,
+      "paper_forward":paper_cycle,"paper_only":True}
 
 @app.get("/api/market/quote")
 def get_market_quote(symbol: str="XAUUSD"):
@@ -288,6 +519,82 @@ def get_market_quote(symbol: str="XAUUSD"):
       "source":quote["source"],"updated_at":quote["updated_at"],"reason":state.get("reason"),
       "message":"Spread within configured limit." if state["acceptable"] else "Spread gate closed: actual tick stale or MAX_SPREAD_POINTS not configured/exceeded."}
 
+
+
+
+def _require_paper_forward_control(token: str | None) -> None:
+    expected = os.getenv("PAPER_FORWARD_CONTROL_TOKEN")
+    if not expected:
+        raise HTTPException(503, "PAPER_FORWARD_CONTROL_TOKEN is not configured on the server.")
+    if not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(401, "Invalid Phase 5 control token.")
+
+
+@app.get("/api/paper-forward/status")
+def paper_forward_status(x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
+    state = PHASE5_STORE.get_state()
+    readiness = _paper_forward_readiness(state)
+    trades = PHASE5_STORE.list_trades(1000)
+    events = PHASE5_STORE.list_events(20)
+    summary = performance_summary(trades, PHASE5_STORE.count_events(), state.get("pending_signal"))
+    return {
+        "status": "ok", "phase": "PHASE_5",
+        "config": {
+            "enabled": state.get("enabled", False),
+            "max_spread_points": state.get("max_spread_points"),
+            "slippage_points": state.get("slippage_points", 0.0),
+            "commission_points_per_side": state.get("commission_points_per_side", 0.0),
+        },
+        "engine": {"enabled": state.get("enabled", False), "mode": "CLOSED_CANDLE_FORWARD_PAPER",
+                   "started_at": state.get("started_at"), "stopped_at": state.get("stopped_at"),
+                   "last_cycle": state.get("last_cycle")},
+        "readiness": readiness, "summary": summary,
+        "recent_trades": trades[:10], "recent_events": events,
+        "paper_only": True, "broker_orders_sent": False,
+        "note": "Paper simulation only. Live MT5 feed and broker-cost evidence must be independently verified."
+    }
+
+
+@app.put("/api/paper-forward/config")
+def save_paper_forward_config(payload: Phase5PaperConfigRequest, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
+    current = PHASE5_STORE.get_state()
+    candidate = payload.model_dump()
+    try:
+        updated = normalize_paper_config(candidate, current)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, str(exc))
+    if updated.get("enabled"):
+        readiness = _paper_forward_readiness(updated)
+        if not readiness.get("ready"):
+            raise HTTPException(409, "Phase 5 start blocked: " + " | ".join(readiness["blockers"]))
+        if not current.get("enabled"):
+            updated["started_at"] = datetime.now(timezone.utc).isoformat()
+            updated["stopped_at"] = None
+    else:
+        if current.get("enabled"):
+            updated["stopped_at"] = datetime.now(timezone.utc).isoformat()
+        updated["pending_signal"] = None
+    PHASE5_STORE.save_state(updated)
+    return {"status": "ok", "config": updated, "readiness": _paper_forward_readiness(updated),
+            "paper_only": True, "broker_orders_sent": False}
+
+
+@app.get("/api/paper-forward/trades")
+def paper_forward_trades(limit: int = 200, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
+    if not 1 <= limit <= 1000:
+        raise HTTPException(400, "limit must be between 1 and 1000")
+    return {"status": "ok", "trades": PHASE5_STORE.list_trades(limit), "paper_only": True}
+
+
+@app.get("/api/paper-forward/events")
+def paper_forward_events(limit: int = 100, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
+    if not 1 <= limit <= 500:
+        raise HTTPException(400, "limit must be between 1 and 500")
+    return {"status": "ok", "events": PHASE5_STORE.list_events(limit), "paper_only": True}
 
 
 @app.get("/api/risk/settings")

@@ -206,6 +206,11 @@ export default function App(){
   const [phase4Timezone,setPhase4Timezone]=useState('UTC');
   const [phase4SameFeed,setPhase4SameFeed]=useState(false);
   const [phase4Costs,setPhase4Costs]=useState({point_size:0.01,spread_points:0,slippage_points:0,commission_points_per_side:0,max_spread_points:0});
+  const [phase5Status,setPhase5Status]=useState(null);
+  const [phase5Settings,setPhase5Settings]=useState({enabled:false,max_spread_points:'',slippage_points:0,commission_points_per_side:0});
+  const [phase5ControlToken,setPhase5ControlToken]=useState('');
+  const [phase5Busy,setPhase5Busy]=useState(false);
+  const phase5Loaded=useRef(false);
   const seenSignalIds=useRef(new Set());
   const firstAlertsLoad=useRef(false);
   const fileRef=useRef(null);
@@ -347,6 +352,40 @@ export default function App(){
     finally{setRiskSaving(false);}
   };
 
+  const loadPhase5Status=useCallback(async()=>{
+    try{
+      const res=await fetch(apiUrl('/api/paper-forward/status'),{headers:{'X-Paper-Control-Token':phase5ControlToken.trim()}});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.detail||'Phase 5 status unavailable');
+      setPhase5Status(data);
+      if(!phase5Loaded.current&&data.config){
+        setPhase5Settings({...data.config});
+        phase5Loaded.current=true;
+      }
+    }catch(error){setPhase5Status(old=>old||{status:'offline',error:error.message});}
+  },[phase5ControlToken]);
+
+  const savePhase5Config=async(enabled)=>{
+    setPhase5Busy(true);
+    try{
+      const payload={...phase5Settings,enabled,max_spread_points:phase5Settings.max_spread_points===''?null:Number(phase5Settings.max_spread_points)};
+      const res=await fetch(apiUrl('/api/paper-forward/config'),{method:'PUT',headers:{'Content-Type':'application/json','X-Paper-Control-Token':phase5ControlToken.trim()},body:JSON.stringify(payload)});
+      const data=await res.json();
+      if(!res.ok)throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||'Phase 5 configuration failed'));
+      setPhase5Settings({...data.config});
+      await loadPhase5Status();
+      setMessage(enabled?'Phase 5 Forward Paper Trading চালু হয়েছে।':'Phase 5 settings সংরক্ষিত; নতুন entry আপাতত বন্ধ।');
+    }catch(error){setMessage('Phase 5: '+error.message);}
+    finally{setPhase5Busy(false);}
+  };
+
+  useEffect(()=>{
+    if(!phase5ControlToken.trim())return;
+    loadPhase5Status();
+    const timer=window.setInterval(loadPhase5Status,20000);
+    return ()=>window.clearInterval(timer);
+  },[phase5ControlToken,loadPhase5Status]);
+
   const enableNotifications=async()=>{
     if(typeof Notification==='undefined'){setNotificationPermission('unsupported');return;}
     try{const permission=await Notification.requestPermission();setNotificationPermission(permission);}
@@ -447,6 +486,52 @@ export default function App(){
       </article>
           </section>
 
+
+    <section className="card phase5-card">
+      <div className="section-head"><div><span className="eyebrow">PHASE 5 · LIVE FORWARD OBSERVATION</span><h2>Continuous Paper Trading</h2></div>
+        <span className={'phase5-state '+(phase5Status?.engine?.enabled?'running':'paused')}>{phase5Status?.engine?.enabled?'ENGINE ON':'ENGINE PAUSED'}</span>
+      </div>
+      <p className="phase5-intro">Authenticated MT5 feed থেকে প্রতিটি সম্পূর্ণ 1H candle একবার প্রসেস হবে। Confirmed signal পরের 1H candle-এর Open-এ Entry Zone-এর ভিতরে থাকলেই simulated entry হবে। Stop/TP1, spread, slippage, commission ও risk gate ledger-এ সংরক্ষিত থাকবে। এটি শুধুই PAPER — কোনো broker order পাঠায় না।</p>
+      <div className="phase5-metrics">
+        <div><small>PROCESSED 1H EVENTS</small><b>{phase5Status?.summary?.processed_events??'—'}</b></div>
+        <div><small>CLOSED PAPER TRADES</small><b>{phase5Status?.summary?.trades_closed??'—'}</b></div>
+        <div><small>OPEN POSITIONS</small><b>{phase5Status?.summary?.trades_open??'—'}</b></div>
+        <div><small>WIN RATE</small><b>{phase5Status?.summary?.win_rate_pct==null?'—':phase5Status.summary.win_rate_pct+'%'}</b></div>
+        <div><small>NET PNL · PRICE</small><b>{phase5Status?.summary?.net_pnl_price==null?'—':Number(phase5Status.summary.net_pnl_price).toFixed(2)}</b></div>
+        <div><small>AVERAGE R</small><b>{phase5Status?.summary?.average_R==null?'—':Number(phase5Status.summary.average_R).toFixed(2)+'R'}</b></div>
+        <div><small>PROFIT FACTOR · R</small><b>{phase5Status?.summary?.profit_factor_R==null?'—':phase5Status.summary.profit_factor_R}</b></div>
+        <div><small>MAX DRAWDOWN · R</small><b>{phase5Status?.summary?.max_drawdown_R==null?'—':Number(phase5Status.summary.max_drawdown_R).toFixed(2)+'R'}</b></div>
+      </div>
+      <div className={'phase5-readiness '+(phase5Status?.readiness?.ready?'ready':'blocked')}>
+        <b>{phase5Status?.readiness?.ready?'Feed / storage readiness passed':'Start gate: requirements not yet met'}</b>
+        {(phase5Status?.readiness?.blockers||[]).map((item,i)=><span key={i}>{item}</span>)}
+        {phase5Status?.readiness?.ready&&<small>Storage: {phase5Status.readiness.checks?.persistent_storage?.backend||'—'} · Server spread cap: {phase5Status.readiness.checks?.server_spread_cap?.max_spread_points??'—'} pts</small>}
+      </div>
+      <div className="phase5-form">
+        <label>Private control token<input type="password" autoComplete="off" value={phase5ControlToken} onChange={e=>setPhase5ControlToken(e.target.value)} placeholder="Server PAPER_FORWARD_CONTROL_TOKEN"/></label>
+        <label>Paper max spread (points)<input type="number" min="0.1" step="0.1" value={phase5Settings.max_spread_points??''} onChange={e=>setPhase5Settings(v=>({...v,max_spread_points:e.target.value===''?'':Number(e.target.value)}))} placeholder="Measured broker cap"/></label>
+        <label>Slippage (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.slippage_points??0} onChange={e=>setPhase5Settings(v=>({...v,slippage_points:Number(e.target.value)}))}/></label>
+        <label>Commission (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.commission_points_per_side??0} onChange={e=>setPhase5Settings(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
+      </div>
+      <div className="phase5-actions">
+        <button className="action-btn secondary" onClick={()=>savePhase5Config(phase5Status?.engine?.enabled===true)} disabled={phase5Busy||!phase5ControlToken.trim()}>Save paper settings</button>
+        {!phase5Status?.engine?.enabled?
+          <button className="action-btn" onClick={()=>savePhase5Config(true)} disabled={phase5Busy||!phase5ControlToken.trim()||!phase5Status?.readiness?.ready}>Start forward paper</button>:
+          <button className="action-btn danger" onClick={()=>savePhase5Config(false)} disabled={phase5Busy||!phase5ControlToken.trim()}>Pause new entries</button>}
+        <button className="action-btn secondary" onClick={loadPhase5Status} disabled={phase5Busy||!phase5ControlToken.trim()}><RefreshCw size={13}/> Refresh status</button>
+      </div>
+      <small className="phase5-note">Paused অবস্থায় নতুন signal/entry নেওয়া হয় না; existing paper position MT5 feed fresh থাকলে exit rules দিয়ে manage হবে। Feed বন্ধ বা stale হলে position management-ও pause হবে। Live observation period এখনো শুরু হয়েছে বলে ধরা হবে না—engine চালু হওয়ার পরে নতুন future 1H candle collect হতে হবে।</small>
+      <div className="phase5-recent">
+        <div className="phase5-subhead">Recent paper trades</div>
+        {(phase5Status?.recent_trades||[]).slice(0,6).map(trade=><div className="phase5-trade" key={trade.id}>
+          <b className={trade.side==='BUY'?'positive':'negative'}>{trade.side} · {trade.status}</b>
+          <span>Entry {Number(trade.entry_price).toFixed(2)} · SL {Number(trade.stop_loss).toFixed(2)} · TP1 {Number(trade.tp1).toFixed(2)}</span>
+          <small>{new Date(Number(trade.entry_time)*1000).toLocaleString()} · {trade.status==='CLOSED'?'Exit '+Number(trade.exit_price).toFixed(2)+' · '+trade.exit_reason+' · '+Number(trade.pnl_r).toFixed(2)+'R':'Open · awaiting stop / target'}</small>
+        </div>)}
+        {!(phase5Status?.recent_trades||[]).length&&<div className="phase5-empty">{phase5Status?.summary?'এখনও কোনো paper position নেই। Live MT5 feed ও readiness gate পূরণ হলে future 1H candle-এ event processing শুরু হবে।':'Ledger দেখতে উপরের private control token দিন।'}</div>}
+      </div>
+      {phase5Status?.engine?.last_cycle&&<div className="phase5-last">Last cycle: {phase5Status.engine.last_cycle.status} · {phase5Status.engine.last_cycle.checked_at||'—'} · {(phase5Status.engine.last_cycle.actions||[]).map(x=>x.action).join(' / ')}</div>}
+    </section>
 
     <section className="card phase4-card">
       <div className="section-head"><div><span className="eyebrow">PHASE 4 · VALIDATION GATE</span><h2>Gold Strategy Validation</h2></div>
