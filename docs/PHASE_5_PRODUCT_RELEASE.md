@@ -31,7 +31,7 @@ Phase 5 is a forward-observation engine, not another historical backtest. It lis
 
 ## Start gate
 
-The engine is OFF by default. A start request is rejected unless all checks pass:
+The engine is OFF by default. A start request is rejected unless all checks pass, including a configured dashboard control token:
 
 - A persistent ledger store is available. Use PostgreSQL on Render or a deliberately configured persistent disk; do not rely on Render's ephemeral SQLite filesystem.
 - Server-side `MARKET_INGEST_TOKEN` is configured and matches the private EA input.
@@ -48,6 +48,7 @@ The dashboard status endpoint returns readiness blockers. A disabled engine does
 Set these variables privately on the API host:
 
 - `MARKET_INGEST_TOKEN`: long random secret shared with the EA.
+- `PAPER_FORWARD_CONTROL_TOKEN`: separate long random secret used by the dashboard to read/configure the private Phase 5 paper ledger. The UI keeps it only in the current browser session state and sends it in the `X-Paper-Control-Token` header; it is not written into the repository or Phase 5 database.
 - `MAX_SPREAD_POINTS`: broker-observed maximum spread in that symbol's MT5 points.
 - `DATABASE_URL`: durable PostgreSQL URL (recommended on Render). SQLite is intended for local development unless an explicitly persistent disk is attached and approved.
 - `CORS_ORIGINS`: trusted dashboard origin(s), if different from the default.
@@ -69,7 +70,7 @@ In MT5 Desktop:
 - `GET /api/paper-forward/trades?limit=200`
 - `GET /api/paper-forward/events?limit=100`
 
-The config body contains `enabled`, `max_spread_points`, `slippage_points`, and `commission_points_per_side`. The server returns HTTP 409 if `enabled=true` is requested before all readiness checks pass.
+All four endpoints require the `X-Paper-Control-Token` header. The config body contains `enabled`, `max_spread_points`, `slippage_points`, and `commission_points_per_side`. The server returns HTTP 409 if `enabled=true` is requested before all readiness checks pass, HTTP 401 for a wrong control token, and HTTP 503 when the server token has not been configured.
 
 ## Verification and acceptance
 
