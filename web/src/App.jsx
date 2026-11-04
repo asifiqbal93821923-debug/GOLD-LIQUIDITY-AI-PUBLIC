@@ -514,7 +514,7 @@ export default function App(){
         <label>Commission (points / side)<input type="number" min="0" step="0.1" value={phase5Settings.commission_points_per_side??0} onChange={e=>setPhase5Settings(v=>({...v,commission_points_per_side:Number(e.target.value)}))}/></label>
       </div>
       <div className="phase5-actions">
-        <button className="action-btn secondary" onClick={()=>savePhase5Config(false)} disabled={phase5Busy||!phase5ControlToken.trim()}>Save paper settings</button>
+        <button className="action-btn secondary" onClick={()=>savePhase5Config(phase5Status?.engine?.enabled===true)} disabled={phase5Busy||!phase5ControlToken.trim()}>Save paper settings</button>
         {!phase5Status?.engine?.enabled?
           <button className="action-btn" onClick={()=>savePhase5Config(true)} disabled={phase5Busy||!phase5ControlToken.trim()||!phase5Status?.readiness?.ready}>Start forward paper</button>:
           <button className="action-btn danger" onClick={()=>savePhase5Config(false)} disabled={phase5Busy||!phase5ControlToken.trim()}>Pause new entries</button>}
