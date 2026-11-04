@@ -9,6 +9,7 @@ from server.phase5_paper import (
     normalize_paper_config,
     open_from_pending,
     performance_summary,
+    pending_matches_next_candle,
 )
 
 
@@ -83,6 +84,29 @@ class Phase5ExecutionTests(unittest.TestCase):
         self.assertEqual(trade["status"], "OPEN")
         self.assertEqual(trade["entry_price"], 2000.06)
         self.assertEqual(trade["lots"], 0.1)
+
+
+    def test_pending_signal_is_valid_only_for_immediate_next_hour(self):
+        pending = {"source_candle_time": 1700000000}
+        self.assertTrue(pending_matches_next_candle(pending, {"time": 1700003600}))
+        self.assertFalse(pending_matches_next_candle(pending, {"time": 1700007200}))
+        self.assertFalse(pending_matches_next_candle({}, {"time": 1700003600}))
+
+    def test_entry_candle_is_checked_for_stop_and_target_after_open(self):
+        trade, status = open_from_pending(
+            self.pending,
+            {"time": 1700003600, "open": 2000.0, "high": 2003.0, "low": 1997.0, "close": 2001.0},
+            spread_points=10, point_size=0.01, slippage_points=1,
+            commission_points_per_side=0.0,
+        )
+        self.assertEqual(status, "ENTRY_OPENED")
+        closed = advance_open_trade(
+            trade,
+            {"time": 1700003600, "open": 2000.0, "high": 2003.0, "low": 1997.0, "close": 2001.0},
+            spread_points=10, point_size=0.01, slippage_points=1,
+            commission_points_per_side=0.0,
+        )
+        self.assertEqual(closed["exit_reason"], "STOP_FIRST")
 
     def test_does_not_chase_when_next_open_is_outside_zone(self):
         trade, status = open_from_pending(
