@@ -201,6 +201,10 @@ def _paper_forward_readiness(state: dict | None = None, now: datetime | None = N
     if not persistent:
         blockers.append("PERSISTENT_DATABASE_REQUIRED: configure DATABASE_URL (PostgreSQL) or explicitly approve a persistent SQLite disk.")
     token_ok = bool(os.getenv("MARKET_INGEST_TOKEN"))
+    control_token_ok = bool(os.getenv("PAPER_FORWARD_CONTROL_TOKEN"))
+    checks["control_token"] = {"ok": control_token_ok}
+    if not control_token_ok:
+        blockers.append("PAPER_FORWARD_CONTROL_TOKEN is not configured; Phase 5 dashboard access is disabled.")
     checks["mt5_bridge_token"] = {"ok": token_ok}
     if not token_ok:
         blockers.append("MT5 bridge token is not configured on the server.")
@@ -518,8 +522,17 @@ def get_market_quote(symbol: str="XAUUSD"):
 
 
 
+def _require_paper_forward_control(token: str | None) -> None:
+    expected = os.getenv("PAPER_FORWARD_CONTROL_TOKEN")
+    if not expected:
+        raise HTTPException(503, "PAPER_FORWARD_CONTROL_TOKEN is not configured on the server.")
+    if not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(401, "Invalid Phase 5 control token.")
+
+
 @app.get("/api/paper-forward/status")
-def paper_forward_status():
+def paper_forward_status(x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
     state = PHASE5_STORE.get_state()
     readiness = _paper_forward_readiness(state)
     trades = PHASE5_STORE.list_trades(1000)
@@ -544,7 +557,8 @@ def paper_forward_status():
 
 
 @app.put("/api/paper-forward/config")
-def save_paper_forward_config(payload: Phase5PaperConfigRequest):
+def save_paper_forward_config(payload: Phase5PaperConfigRequest, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
     current = PHASE5_STORE.get_state()
     candidate = payload.model_dump()
     try:
@@ -568,14 +582,16 @@ def save_paper_forward_config(payload: Phase5PaperConfigRequest):
 
 
 @app.get("/api/paper-forward/trades")
-def paper_forward_trades(limit: int = 200):
+def paper_forward_trades(limit: int = 200, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
     if not 1 <= limit <= 1000:
         raise HTTPException(400, "limit must be between 1 and 1000")
     return {"status": "ok", "trades": PHASE5_STORE.list_trades(limit), "paper_only": True}
 
 
 @app.get("/api/paper-forward/events")
-def paper_forward_events(limit: int = 100):
+def paper_forward_events(limit: int = 100, x_paper_control_token: str | None = Header(default=None, alias="X-Paper-Control-Token")):
+    _require_paper_forward_control(x_paper_control_token)
     if not 1 <= limit <= 500:
         raise HTTPException(400, "limit must be between 1 and 500")
     return {"status": "ok", "events": PHASE5_STORE.list_events(limit), "paper_only": True}
